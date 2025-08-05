@@ -29,6 +29,12 @@ export async function POST(request: NextRequest) {
                      request.headers.get('x-real-ip') || 
                      'unknown';
     
+    console.log('🔍 Admin signin attempt:', {
+      username: body.username,
+      hasPassword: !!body.password,
+      passwordLength: body.password?.length
+    });
+    
     // Validate request body
     const validatedData = adminSignInSchema.parse(body);
     
@@ -41,31 +47,45 @@ export async function POST(request: NextRequest) {
       .limit(1);
     
     if (error) {
-      console.error('Database error:', error);
+      console.error('❌ Database error:', error);
       return NextResponse.json(
         { error: 'Database connection failed' },
         { status: 500 }
       );
     }
     
+    console.log('📊 Admin users found:', adminUsers?.length || 0);
+    
     const adminUser = adminUsers?.[0] as AdminUser;
     
     if (!adminUser) {
+      console.log('❌ Admin user not found for username:', validatedData.username);
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
       );
     }
+    
+    console.log('👤 Found admin user:', {
+      id: adminUser.id,
+      username: adminUser.username,
+      email: adminUser.email,
+      is_active: adminUser.is_active
+    });
     
     // Verify password
     const isPasswordValid = await bcrypt.compare(validatedData.password, adminUser.password_hash);
+    console.log('🔐 Password validation result:', isPasswordValid);
     
     if (!isPasswordValid) {
+      console.log('❌ Password validation failed');
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
       );
     }
+    
+    console.log('✅ Password validation successful');
     
     // Update last login
     await supabase
@@ -129,7 +149,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict', // Stricter for admin
       maxAge: 60 * 60 * 8, // 8 hours
-      path: '/admin'
+      path: '/' // Changed from '/admin' to '/' so API routes can access it
     });
     
     return response;
