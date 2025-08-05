@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useRouter } from 'next/navigation'
+import { SimpleButton } from '@/components/ui/simple-button'
+import { SimpleCard, SimpleCardContent, SimpleCardDescription, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard'
 import { AlertTriangle } from 'lucide-react'
 
 interface ErrorProps {
@@ -11,6 +12,8 @@ interface ErrorProps {
 }
 
 export default function ErrorPage({ error, reset }: ErrorProps) {
+  const router = useRouter()
+
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Application error:', error)
@@ -18,19 +21,19 @@ export default function ErrorPage({ error, reset }: ErrorProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+      <SimpleCard className="w-full max-w-md">
+        <SimpleCardHeader className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
             <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
           </div>
-          <CardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+          <SimpleCardTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             Something went wrong!
-          </CardTitle>
-          <CardDescription>
+          </SimpleCardTitle>
+          <SimpleCardDescription>
             An unexpected error occurred. Please try again or contact support if the problem persists.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+          </SimpleCardDescription>
+        </SimpleCardHeader>
+        <SimpleCardContent className="space-y-4">
           {process.env.NODE_ENV === 'development' && (
             <div className="rounded-md bg-gray-50 dark:bg-gray-900 p-3">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -47,19 +50,19 @@ export default function ErrorPage({ error, reset }: ErrorProps) {
             </div>
           )}
           <div className="flex flex-col space-y-2">
-            <Button onClick={reset} className="w-full">
+            <SimpleButton onClick={reset} className="w-full">
               Try again
-            </Button>
-            <Button 
+            </SimpleButton>
+            <SimpleButton 
               variant="outline" 
-              onClick={() => window.location.href = '/'}
+              onClick={() => router.push('/')}
               className="w-full"
             >
               Go home
-            </Button>
+            </SimpleButton>
           </div>
-        </CardContent>
-      </Card>
+        </SimpleCardContent>
+      </SimpleCard>
     </div>
   )
 }

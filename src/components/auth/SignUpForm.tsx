@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthLayout } from './AuthLayout';
-import { Button } from '@/components/ui/button';
+import { SimpleButton } from '@/components/ui/simple-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SimpleCard, SimpleCardContent } from '@/components/ui/SimpleCard';
+import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
 import { useAuth } from '@/context/AuthContext';
 import { SignUpFormData } from '@/types/auth';
 import { Eye, EyeOff, Users, User, Mail, Lock, Shield } from 'lucide-react';
@@ -99,14 +99,14 @@ export const SignUpForm: React.FC = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <SimpleAlert variant="destructive">
+            <SimpleAlertDescription>{error}</SimpleAlertDescription>
+          </SimpleAlert>
         )}
 
         {/* Leader Information */}
-        <Card className="border-blue-200 dark:border-blue-800">
-          <CardContent className="p-4">
+        <SimpleCard className="border-blue-200 dark:border-blue-800">
+          <SimpleCardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <User className="h-5 w-5 text-blue-600" />
               <h3 className="font-semibold text-gray-900 dark:text-white">Team Leader Information</h3>
@@ -184,12 +184,12 @@ export const SignUpForm: React.FC = () => {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </SimpleCardContent>
+        </SimpleCard>
 
         {/* Team Information */}
-        <Card className="border-purple-200 dark:border-purple-800">
-          <CardContent className="p-4">
+        <SimpleCard className="border-purple-200 dark:border-purple-800">
+          <SimpleCardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <Users className="h-5 w-5 text-purple-600" />
               <h3 className="font-semibold text-gray-900 dark:text-white">Team Information</h3>
@@ -248,12 +248,12 @@ export const SignUpForm: React.FC = () => {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </SimpleCardContent>
+        </SimpleCard>
 
         {/* Team Password */}
-        <Card className="border-green-200 dark:border-green-800">
-          <CardContent className="p-4">
+        <SimpleCard className="border-green-200 dark:border-green-800">
+          <SimpleCardContent className="p-4">
             <div className="flex items-center gap-2 mb-4">
               <Shield className="h-5 w-5 text-green-600" />
               <h3 className="font-semibold text-gray-900 dark:text-white">Team Security</h3>
@@ -304,16 +304,16 @@ export const SignUpForm: React.FC = () => {
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </SimpleCardContent>
+        </SimpleCard>
 
-        <Button
+        <SimpleButton
           type="submit"
           className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold rounded-xl"
           disabled={isLoading}
         >
           {isLoading ? 'Creating Team...' : 'Create Team Account'}
-        </Button>
+        </SimpleButton>
 
         <div className="text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
