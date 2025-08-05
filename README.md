@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EDIC Contest Platform
 
-## Getting Started
+A modern, scalable contest platform built with Next.js 15, TypeScript, and PostgreSQL. Designed for team-based competitive events with multiple rounds including quizzes, voting, and results.
 
-First, run the development server:
+## 🚀 Features
+
+- **Team-based Authentication**: Secure team registration and login
+- **Multi-round Contest System**: Quiz, Voting, and Results phases
+- **Real-time Progress Tracking**: Dynamic status updates and qualification tracking
+- **Responsive Design**: Works on all devices with dark/light theme support
+- **Production Ready**: Optimized for deployment on Vercel with PostgreSQL backend
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, PostgreSQL, JWT Authentication
+- **Database**: PostgreSQL with full schema and indexing
+- **Deployment**: Vercel-optimized with environment configuration
+- **Security**: bcrypt password hashing, HTTP-only cookies, CORS protection
+
+## 📋 Prerequisites
+
+- Node.js 18+ 
+- PostgreSQL database (local or cloud)
+- Vercel account (for deployment)
+
+## 🏃‍♂️ Quick Start
+
+### 1. Clone and Install
+
+```bash
+git clone <your-repo-url>
+cd edic-contest-platform
+npm install
+```
+
+### 2. Environment Setup
+
+```bash
+# Copy environment file
+cp .env.example .env.local
+
+# Edit .env.local with your database credentials
+DATABASE_URL="postgresql://user:password@localhost:5432/edic_contest"
+JWT_SECRET="your-super-secret-jwt-key-minimum-32-characters"
+```
+
+### 3. Database Setup
+
+```bash
+# Create database and run schema
+psql -d your_database -f database/schema.sql
+```
+
+### 4. Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Visit `http://localhost:3000`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🚀 Deployment Guide
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed production deployment instructions.
 
-## Learn More
+## 🎯 Contest System
 
-To learn more about Next.js, take a look at the following resources:
+### Round 1: Quiz Phase
+- Multiple choice questions with automatic scoring
+- Real-time progress tracking and qualification
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Round 2: Voting Phase  
+- Team voting with rating/ranking system
+- Qualification for final round
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Round 3: Results Phase
+- Final rankings and score breakdowns
+- Team achievement status
 
-## Deploy on Vercel
+## 🔐 Authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Team-based registration with leader email
+- Shared team password for member access
+- JWT tokens with HTTP-only cookies
+- Secure password hashing with bcrypt
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📊 API Endpoints
+
+- `POST /api/auth/signup` - Team registration
+- `POST /api/auth/signin` - Team authentication  
+- `POST /api/auth/signout` - Logout
+- `GET /api/auth/me` - Current user/team info
+- `GET /api/health` - System health check
+
+## 🗄️ Database Schema
+
+Complete PostgreSQL schema with tables for users, teams, contest rounds, progress tracking, quizzes, voting, and results. See `database/schema.sql` for full structure.
+
+Built with ❤️ for competitive programming and team contests.

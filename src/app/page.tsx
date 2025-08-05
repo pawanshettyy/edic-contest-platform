@@ -62,6 +62,12 @@ export default function Home() {
             >
               Sign In to Existing Team
             </Link>
+            <Link 
+              href="/admin/login" 
+              className="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-xl hover:from-orange-600 hover:to-red-600 transition-all shadow-xl text-lg"
+            >
+              🔐 Admin Access
+            </Link>
           </div>
         </div>
 

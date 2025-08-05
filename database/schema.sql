@@ -4,6 +4,16 @@
 -- Create extension for UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- Teams table (create first to resolve circular reference)
+CREATE TABLE teams (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    leader_id UUID, -- Will add foreign key constraint later
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Users table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -12,16 +22,6 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     is_leader BOOLEAN DEFAULT FALSE,
     team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Teams table
-CREATE TABLE teams (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    leader_id UUID REFERENCES users(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -130,8 +130,7 @@ CREATE INDEX idx_team_votes_team_id ON team_votes(team_id);
 CREATE INDEX idx_final_results_rank ON final_results(final_rank);
 
 -- Add foreign key constraints after table creation
-ALTER TABLE users ADD CONSTRAINT fk_users_team_id FOREIGN KEY (team_id) REFERENCES teams(id);
-ALTER TABLE teams ADD CONSTRAINT fk_teams_leader_id FOREIGN KEY (leader_id) REFERENCES users(id);
+ALTER TABLE teams ADD CONSTRAINT fk_teams_leader_id FOREIGN KEY (leader_id) REFERENCES users(id) ON DELETE CASCADE;
 
 -- Insert initial contest rounds
 INSERT INTO contest_rounds (round_number, name, description, is_active) VALUES
