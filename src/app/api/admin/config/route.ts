@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { query } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -12,19 +12,25 @@ interface AdminTokenPayload {
 
 // Validation schemas
 const configUpdateSchema = z.object({
-  key: z.string().min(1),
-  value: z.string(),
-  description: z.string().optional()
+  contest_name: z.string().optional(),
+  contest_description: z.string().optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  max_teams: z.number().optional(),
+  team_size: z.number().optional(),
+  registration_open: z.boolean().optional(),
+  contest_active: z.boolean().optional(),
+  current_round: z.number().optional()
 });
 
 const roundConfigSchema = z.object({
-  roundNumber: z.number().min(1),
+  round_number: z.number().min(1),
   title: z.string().min(1),
   description: z.string(),
-  isActive: z.boolean(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
-  timeLimit: z.number().optional()
+  is_active: z.boolean(),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
+  time_limit_minutes: z.number().optional()
 });
 
 async function verifyAdminSession(token: string) {
@@ -37,12 +43,14 @@ async function verifyAdminSession(token: string) {
     throw new Error('Invalid session type');
   }
   
-  const sessions = await query(
-    'SELECT * FROM admin_sessions WHERE session_token = $1 AND expires_at > NOW()',
-    [token]
-  );
+  const { data: sessions, error } = await supabase
+    .from('admin_sessions')
+    .select('*')
+    .eq('session_token', token)
+    .gt('expires_at', new Date().toISOString())
+    .limit(1);
   
-  if (sessions.length === 0) {
+  if (error || !sessions || sessions.length === 0) {
     throw new Error('Session expired');
   }
   
@@ -59,39 +67,31 @@ export async function GET(request: NextRequest) {
     
     await verifyAdminSession(token);
     
-    // Get all configuration
-    const [contestConfig, contestRounds] = await Promise.all([
-      query<{
-        key: string;
-        value: string;
-        description: string;
-        is_active: boolean;
-        updated_at: string;
-      }>(`
-        SELECT key, value, description, is_active, updated_at
-        FROM contest_config
-        ORDER BY key
-      `),
-      query(`
-        SELECT round_number, title, description, is_active, 
-               start_time, end_time, time_limit_minutes,
-               created_at, updated_at
-        FROM contest_rounds
-        ORDER BY round_number
-      `)
-    ]);
+    // Get contest configuration
+    const { data: config, error: configError } = await supabase
+      .from('contest_config')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (configError) {
+      console.error('Config fetch error:', configError);
+      return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 });
+    }
+    
+    // Get contest rounds
+    const { data: rounds, error: roundsError } = await supabase
+      .from('contest_rounds')
+      .select('*')
+      .order('round_number', { ascending: true });
+    
+    if (roundsError) {
+      console.error('Rounds fetch error:', roundsError);
+    }
     
     return NextResponse.json({
-      config: contestConfig.reduce((acc: Record<string, unknown>, config) => ({
-        ...acc,
-        [config.key]: {
-          value: config.value,
-          description: config.description,
-          isActive: config.is_active,
-          updatedAt: config.updated_at
-        }
-      }), {}),
-      rounds: contestRounds
+      config: config?.[0] || null,
+      rounds: rounds || []
     });
     
   } catch (error) {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No admin session' }, { status: 401 });
     }
     
-    const adminSession = await verifyAdminSession(token);
+    const admin = await verifyAdminSession(token);
     const body = await request.json();
     
     const { searchParams } = new URL(request.url);
@@ -122,84 +122,64 @@ export async function POST(request: NextRequest) {
     if (action === 'update_config') {
       const validatedData = configUpdateSchema.parse(body);
       
-      // Update or insert configuration
-      await query(`
-        INSERT INTO contest_config (key, value, description, updated_by)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (key)
-        DO UPDATE SET 
-          value = EXCLUDED.value,
-          description = COALESCE(EXCLUDED.description, contest_config.description),
-          updated_by = EXCLUDED.updated_by,
-          updated_at = NOW()
-      `, [validatedData.key, validatedData.value, validatedData.description || '', adminSession.adminId]);
+      // Update or create contest configuration
+      const { data, error } = await supabase
+        .from('contest_config')
+        .upsert({
+          ...validatedData,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
       
-      // Log the configuration change
-      await query(
-        `INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-         VALUES ($1, 'config_update', $2, $3)`,
-        [
-          adminSession.adminId,
-          JSON.stringify({
-            key: validatedData.key,
-            value: validatedData.value,
-            description: validatedData.description
-          }),
-          request.headers.get('x-forwarded-for') || 
-          request.headers.get('x-real-ip') || 
-          'unknown'
-        ]
-      );
+      if (error) {
+        console.error('Config update error:', error);
+        return NextResponse.json({ error: 'Failed to update config' }, { status: 500 });
+      }
       
-      return NextResponse.json({
-        message: 'Configuration updated successfully'
-      });
+      // Log admin action
+      await supabase
+        .from('admin_logs')
+        .insert({
+          admin_user_id: admin.adminId,
+          action: 'config_update',
+          target_type: 'config',
+          details: validatedData,
+          ip_address: request.headers.get('x-forwarded-for') || 'unknown'
+        });
+      
+      return NextResponse.json({ message: 'Configuration updated successfully', data });
       
     } else if (action === 'update_round') {
       const validatedData = roundConfigSchema.parse(body);
       
-      // Update or insert contest round
-      await query(`
-        INSERT INTO contest_rounds (
-          round_number, title, description, is_active, 
-          start_time, end_time, time_limit_minutes
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (round_number)
-        DO UPDATE SET
-          title = EXCLUDED.title,
-          description = EXCLUDED.description,
-          is_active = EXCLUDED.is_active,
-          start_time = EXCLUDED.start_time,
-          end_time = EXCLUDED.end_time,
-          time_limit_minutes = EXCLUDED.time_limit_minutes,
-          updated_at = NOW()
-      `, [
-        validatedData.roundNumber,
-        validatedData.title,
-        validatedData.description,
-        validatedData.isActive,
-        validatedData.startTime || null,
-        validatedData.endTime || null,
-        validatedData.timeLimit || null
-      ]);
+      // Update or create contest round
+      const { data, error } = await supabase
+        .from('contest_rounds')
+        .upsert({
+          ...validatedData,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'round_number'
+        });
       
-      // Log the round update
-      await query(
-        `INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-         VALUES ($1, 'round_update', $2, $3)`,
-        [
-          adminSession.adminId,
-          JSON.stringify(validatedData),
-          request.headers.get('x-forwarded-for') || 
-          request.headers.get('x-real-ip') || 
-          'unknown'
-        ]
-      );
+      if (error) {
+        console.error('Round update error:', error);
+        return NextResponse.json({ error: 'Failed to update round' }, { status: 500 });
+      }
       
-      return NextResponse.json({
-        message: 'Contest round updated successfully'
-      });
+      // Log admin action
+      await supabase
+        .from('admin_logs')
+        .insert({
+          admin_user_id: admin.adminId,
+          action: 'round_update',
+          target_type: 'round',
+          details: validatedData,
+          ip_address: request.headers.get('x-forwarded-for') || 'unknown'
+        });
+      
+      return NextResponse.json({ message: 'Contest round updated successfully', data });
       
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

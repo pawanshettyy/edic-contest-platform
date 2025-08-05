@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { query } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -11,10 +11,11 @@ interface AdminTokenPayload {
 }
 
 // Validation schemas
-const teamActionSchema = z.object({
-  action: z.enum(['update_score', 'change_round', 'add_penalty', 'activate', 'deactivate']),
+const teamUpdateSchema = z.object({
   teamId: z.string().uuid(),
-  data: z.record(z.any()).optional()
+  action: z.enum(['update_score', 'add_penalty', 'reset_progress', 'disqualify']),
+  value: z.number().optional(),
+  reason: z.string().optional()
 });
 
 async function verifyAdminSession(token: string) {
@@ -27,12 +28,14 @@ async function verifyAdminSession(token: string) {
     throw new Error('Invalid session type');
   }
   
-  const sessions = await query(
-    'SELECT * FROM admin_sessions WHERE session_token = $1 AND expires_at > NOW()',
-    [token]
-  );
+  const { data: sessions, error } = await supabase
+    .from('admin_sessions')
+    .select('*')
+    .eq('session_token', token)
+    .gt('expires_at', new Date().toISOString())
+    .limit(1);
   
-  if (sessions.length === 0) {
+  if (error || !sessions || sessions.length === 0) {
     throw new Error('Session expired');
   }
   
@@ -49,74 +52,65 @@ export async function GET(request: NextRequest) {
     
     await verifyAdminSession(token);
     
-    // Get query parameters
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const search = searchParams.get('search') || '';
-    const round = searchParams.get('round');
-    const sortBy = searchParams.get('sortBy') || 'total_score';
-    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    // Get teams with their progress and scores
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select(`
+        id,
+        team_name,
+        team_code,
+        current_round,
+        total_score,
+        is_disqualified,
+        last_activity,
+        created_at,
+        team_members (
+          id,
+          users (username, email)
+        )
+      `)
+      .order('total_score', { ascending: false });
     
-    const offset = (page - 1) * limit;
-    
-    // Build query conditions
-    const whereConditions = ['1=1'];
-    const queryParams: (string | number)[] = [];
-    let paramCount = 0;
-    
-    if (search) {
-      paramCount++;
-      whereConditions.push(`(t.name ILIKE $${paramCount} OR u.full_name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`);
-      queryParams.push(`%${search}%`);
+    if (teamsError) {
+      console.error('Teams fetch error:', teamsError);
+      return NextResponse.json({ error: 'Failed to fetch teams' }, { status: 500 });
     }
     
-    if (round) {
-      paramCount++;
-      whereConditions.push(`t.current_round = $${paramCount}`);
-      queryParams.push(parseInt(round));
-    }
-    
-    // Get teams with pagination
-    const teamsQuery = `
-      SELECT 
-        t.*,
-        u.full_name as leader_name,
-        u.email as leader_email,
-        u.university as leader_university,
-        (SELECT COUNT(*) FROM user_progress up WHERE up.team_id = t.id) as total_submissions,
-        (SELECT COUNT(*) FROM team_penalties tp WHERE tp.team_id = t.id) as penalty_count,
-        (SELECT SUM(tp.penalty_minutes) FROM team_penalties tp WHERE tp.team_id = t.id) as total_penalty_minutes
-      FROM teams t
-      LEFT JOIN users u ON t.leader_id = u.id
-      WHERE ${whereConditions.join(' AND ')}
-      ORDER BY ${sortBy} ${sortOrder.toUpperCase()}
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}
-    `;
-    
-    queryParams.push(limit, offset);
-    
-    const teams = await query(teamsQuery, queryParams);
-    
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM teams t
-      LEFT JOIN users u ON t.leader_id = u.id
-      WHERE ${whereConditions.join(' AND ')}
-    `;
-    
-    const countResult = await query<{ total: string }>(countQuery, queryParams.slice(0, -2));
-    const totalTeams = parseInt(countResult[0].total);
+    // Get team progress for each team
+    const teamsWithProgress = await Promise.all(
+      (teams || []).map(async (team) => {
+        const { data: progress } = await supabase
+          .from('team_progress')
+          .select('*')
+          .eq('team_id', team.id);
+        
+        const { data: penalties } = await supabase
+          .from('team_penalties')
+          .select('*')
+          .eq('team_id', team.id);
+        
+        const { data: submissions } = await supabase
+          .from('team_submissions')
+          .select('id', { count: 'exact', head: true })
+          .eq('team_id', team.id);
+        
+        return {
+          ...team,
+          progress: progress || [],
+          penalties: penalties || [],
+          submissionCount: submissions?.length || 0,
+          members: team.team_members?.map((member: any) => ({
+            id: member.id,
+            username: member.users?.username,
+            email: member.users?.email
+          })) || []
+        };
+      })
+    );
     
     return NextResponse.json({
-      teams,
-      pagination: {
-        page,
-        limit,
-        total: totalTeams,
-        totalPages: Math.ceil(totalTeams / limit)
-      }
+      teams: teamsWithProgress,
+      totalTeams: teams?.length || 0
     });
     
   } catch (error) {
@@ -138,87 +132,88 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No admin session' }, { status: 401 });
     }
     
-    const adminSession = await verifyAdminSession(token);
+    const admin = await verifyAdminSession(token);
     const body = await request.json();
-    const validatedData = teamActionSchema.parse(body);
+    const validatedData = teamUpdateSchema.parse(body);
     
-    const { action, teamId, data } = validatedData;
-    
-    let result;
-    const logDetails: Record<string, unknown> = { action, teamId };
+    const { teamId, action, value, reason } = validatedData;
     
     switch (action) {
       case 'update_score':
-        if (!data?.currentScore && !data?.totalScore) {
-          return NextResponse.json({ error: 'Score data required' }, { status: 400 });
+        if (typeof value !== 'number') {
+          return NextResponse.json({ error: 'Score value required' }, { status: 400 });
         }
         
-        const updateFields = [];
-        const updateParams = [];
-        let paramCount = 0;
+        await supabase
+          .from('teams')
+          .update({ 
+            total_score: value,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', teamId);
         
-        if (data.currentScore !== undefined) {
-          paramCount++;
-          updateFields.push(`current_score = $${paramCount}`);
-          updateParams.push(parseInt(data.currentScore));
-        }
-        
-        if (data.totalScore !== undefined) {
-          paramCount++;
-          updateFields.push(`total_score = $${paramCount}`);
-          updateParams.push(parseInt(data.totalScore));
-        }
-        
-        paramCount++;
-        updateParams.push(teamId);
-        
-        result = await query(
-          `UPDATE teams SET ${updateFields.join(', ')}, updated_at = NOW() WHERE id = $${paramCount}`,
-          updateParams
-        );
-        
-        logDetails.scoreUpdate = { currentScore: data.currentScore, totalScore: data.totalScore };
-        break;
-        
-      case 'change_round':
-        if (!data?.round) {
-          return NextResponse.json({ error: 'Round number required' }, { status: 400 });
-        }
-        
-        result = await query(
-          'UPDATE teams SET current_round = $1, updated_at = NOW() WHERE id = $2',
-          [parseInt(data.round), teamId]
-        );
-        
-        logDetails.roundChange = { newRound: data.round };
         break;
         
       case 'add_penalty':
-        if (!data?.reason || !data?.minutes) {
-          return NextResponse.json({ error: 'Penalty reason and minutes required' }, { status: 400 });
+        if (typeof value !== 'number') {
+          return NextResponse.json({ error: 'Penalty value required' }, { status: 400 });
         }
         
-        result = await query(
-          `INSERT INTO team_penalties (team_id, reason, penalty_minutes, applied_by, applied_at)
-           VALUES ($1, $2, $3, $4, NOW())`,
-          [teamId, data.reason, parseInt(data.minutes), adminSession.adminId]
-        );
+        await supabase
+          .from('team_penalties')
+          .insert({
+            team_id: teamId,
+            penalty_points: value,
+            reason: reason || 'Admin penalty',
+            applied_by: admin.adminId,
+            applied_at: new Date().toISOString()
+          });
         
-        logDetails.penalty = { reason: data.reason, minutes: data.minutes };
+        // Update team total score
+        const { data: currentTeam } = await supabase
+          .from('teams')
+          .select('total_score')
+          .eq('id', teamId)
+          .single();
+        
+        if (currentTeam) {
+          await supabase
+            .from('teams')
+            .update({ 
+              total_score: Math.max(0, currentTeam.total_score - value),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', teamId);
+        }
+        
         break;
         
-      case 'activate':
-        result = await query(
-          'UPDATE teams SET is_active = true, updated_at = NOW() WHERE id = $1',
-          [teamId]
-        );
+      case 'reset_progress':
+        await supabase
+          .from('team_progress')
+          .delete()
+          .eq('team_id', teamId);
+        
+        await supabase
+          .from('teams')
+          .update({ 
+            current_round: 1,
+            total_score: 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', teamId);
+        
         break;
         
-      case 'deactivate':
-        result = await query(
-          'UPDATE teams SET is_active = false, updated_at = NOW() WHERE id = $1',
-          [teamId]
-        );
+      case 'disqualify':
+        await supabase
+          .from('teams')
+          .update({ 
+            is_disqualified: true,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', teamId);
+        
         break;
         
       default:
@@ -226,21 +221,19 @@ export async function POST(request: NextRequest) {
     }
     
     // Log admin action
-    await query(
-      `INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-       VALUES ($1, 'team_management', $2, $3)`,
-      [
-        adminSession.adminId,
-        JSON.stringify(logDetails),
-        request.headers.get('x-forwarded-for') || 
-        request.headers.get('x-real-ip') || 
-        'unknown'
-      ]
-    );
+    await supabase
+      .from('admin_logs')
+      .insert({
+        admin_user_id: admin.adminId,
+        action: `team_${action}`,
+        target_type: 'team',
+        target_id: teamId,
+        details: { action, value, reason },
+        ip_address: request.headers.get('x-forwarded-for') || 'unknown'
+      });
     
-    return NextResponse.json({
-      message: `Team ${action} completed successfully`,
-      result
+    return NextResponse.json({ 
+      message: `Team ${action} completed successfully` 
     });
     
   } catch (error) {
