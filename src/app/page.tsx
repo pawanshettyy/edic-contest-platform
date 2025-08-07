@@ -10,13 +10,13 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl">
-              <span className="text-xl font-bold text-white">AX</span>
+              <span className="text-xl font-bold text-white">T3</span>
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Axios EDIC
+                Techpreneur 3.0 Summit
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Contest Platform</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Innovation Challenge</p>
             </div>
           </div>
           <nav className="flex items-center space-x-4">
@@ -40,15 +40,19 @@ export default function Home() {
       <main className="container mx-auto px-4 py-20">
         <div className="text-center mb-16">
           <h2 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-            Compete, Learn, and{' '}
+            Innovate, Compete, and{' '}
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Excel
+              Transform
             </span>
           </h2>
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto leading-relaxed">
-            Join the ultimate programming contest platform where teams of 4 compete in exciting challenges, 
-            solve complex problems, and showcase their coding skills in real-time competitions.
+            Join the ultimate 3-day innovation summit where teams of 4 compete across 3 exciting rounds, 
+            solving real-world problems and showcasing entrepreneurial excellence in a dynamic environment.
           </p>
+          <div className="mt-6 text-lg text-gray-700 dark:text-gray-300">
+            <p className="font-semibold">📅 3-Day Event | 🏆 3 Challenging Rounds | 👥 Teams of 4</p>
+            <p className="text-base mt-2 text-gray-600 dark:text-gray-400">More details coming soon...</p>
+          </div>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
               href="/auth/signup" 
@@ -76,11 +80,11 @@ export default function Home() {
           <SimpleCard>
             <SimpleCardHeader className="text-center">
               <Trophy className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
-              <SimpleCardTitle>Competitive Contests</SimpleCardTitle>
+              <SimpleCardTitle>3-Round Challenge</SimpleCardTitle>
             </SimpleCardHeader>
             <SimpleCardContent>
               <SimpleCardDescription className="text-center">
-                Participate in exciting programming contests with real-time leaderboards and rankings.
+                Experience 3 diverse rounds testing innovation, problem-solving, and entrepreneurial skills.
               </SimpleCardDescription>
             </SimpleCardContent>
           </SimpleCard>
@@ -88,11 +92,11 @@ export default function Home() {
           <SimpleCard>
             <SimpleCardHeader className="text-center">
               <Users className="h-12 w-12 mx-auto text-blue-500 mb-4" />
-              <SimpleCardTitle>Team Collaboration</SimpleCardTitle>
+              <SimpleCardTitle>Team Innovation</SimpleCardTitle>
             </SimpleCardHeader>
             <SimpleCardContent>
               <SimpleCardDescription className="text-center">
-                Work together as a team of up to 4 members to solve challenging problems.
+                Collaborate as a team of 4 to develop creative solutions and innovative ideas.
               </SimpleCardDescription>
             </SimpleCardContent>
           </SimpleCard>
@@ -100,11 +104,11 @@ export default function Home() {
           <SimpleCard>
             <SimpleCardHeader className="text-center">
               <Clock className="h-12 w-12 mx-auto text-green-500 mb-4" />
-              <SimpleCardTitle>Timed Challenges</SimpleCardTitle>
+              <SimpleCardTitle>3-Day Summit</SimpleCardTitle>
             </SimpleCardHeader>
             <SimpleCardContent>
               <SimpleCardDescription className="text-center">
-                Test your skills under pressure with time-limited quizzes and coding challenges.
+                An intensive 3-day event packed with challenges, networking, and learning opportunities.
               </SimpleCardDescription>
             </SimpleCardContent>
           </SimpleCard>
@@ -112,11 +116,11 @@ export default function Home() {
           <SimpleCard>
             <SimpleCardHeader className="text-center">
               <Shield className="h-12 w-12 mx-auto text-purple-500 mb-4" />
-              <SimpleCardTitle>Secure Platform</SimpleCardTitle>
+              <SimpleCardTitle>Entrepreneurship Focus</SimpleCardTitle>
             </SimpleCardHeader>
             <SimpleCardContent>
               <SimpleCardDescription className="text-center">
-                Fair and secure contest environment with anti-cheating measures and monitoring.
+                Develop entrepreneurial mindset with real-world problem solving and business innovation.
               </SimpleCardDescription>
             </SimpleCardContent>
           </SimpleCard>
@@ -126,9 +130,9 @@ export default function Home() {
         <div className="text-center mt-20">
           <SimpleCard className="max-w-2xl mx-auto">
             <SimpleCardHeader>
-              <SimpleCardTitle className="text-2xl">Ready to Start Competing?</SimpleCardTitle>
+              <SimpleCardTitle className="text-2xl">Ready to Join the Summit?</SimpleCardTitle>
               <SimpleCardDescription>
-                Create your team account and join thousands of developers in exciting programming contests.
+                Register your team for Techpreneur 3.0 Summit and be part of the innovation revolution.
               </SimpleCardDescription>
             </SimpleCardHeader>
             <SimpleCardContent>
@@ -154,7 +158,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 mt-20 border-t border-gray-200 dark:border-gray-700">
         <div className="text-center text-gray-600 dark:text-gray-400">
-          <p>&copy; 2024 Axios EDIC Contest Platform. All rights reserved.</p>
+          <p>&copy; 2025 Techpreneur 3.0 Summit. All rights reserved.</p>
         </div>
       </footer>
     </div>

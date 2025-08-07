@@ -225,7 +225,7 @@ export async function registerTeam(registrationData: {
   teamPassword: string;
   memberNames: string[];
 }) {
-  return await transaction(async (client) => {
+  return await transaction(async () => {
     // Check if email already exists
     const existingUser = await UserDAO.findByEmail(registrationData.email);
     if (existingUser) {

@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
             Admin Portal
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Contest Platform Administration
+            Techpreneur 3.0 Summit Administration
           </p>
         </div>
 

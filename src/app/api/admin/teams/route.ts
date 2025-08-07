@@ -99,10 +99,10 @@ export async function GET(request: NextRequest) {
           progress: progress || [],
           penalties: penalties || [],
           submissionCount: submissions?.length || 0,
-          members: team.team_members?.map((member: any) => ({
-            id: member.id,
-            username: member.users?.username,
-            email: member.users?.email
+          members: team.team_members?.map((member: Record<string, unknown>) => ({
+            id: member.id as string,
+            username: (member.users as { username?: string })?.username || 'Unknown',
+            email: (member.users as { email?: string })?.email || 'Unknown'
           })) || []
         };
       })

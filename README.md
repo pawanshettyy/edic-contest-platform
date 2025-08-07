@@ -1,6 +1,6 @@
-# EDIC Contest Platform
+# Techpreneur 3.0 Summit Platform
 
-A modern, scalable contest platform built with Next.js 15, TypeScript, and PostgreSQL. Designed for team-based competitive events with multiple rounds including quizzes, voting, and results.
+A modern, scalable innovation challenge platform built with Next.js 15, TypeScript, and PostgreSQL. Designed for the Techpreneur 3.0 Summit - a 3-day entrepreneurship event with team-based challenges across 3 rounds including innovation quizzes, voting, and results.
 
 ## 🚀 Features
 

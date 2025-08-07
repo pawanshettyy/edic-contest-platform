@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Axios EDIC - Contest Platform",
-  description: "Professional coding contest platform for teams",
+  title: "Techpreneur 3.0 Summit",
+  description: "Innovation challenge platform for entrepreneurs and innovators",
 };
 
 export default function RootLayout({

@@ -19,7 +19,7 @@ export default function NotFound() {
             Page Not Found
           </h2>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Oops! The page you&apos;re looking for seems to have wandered off the contest platform.
+            Oops! The page you&apos;re looking for seems to have wandered off the summit platform.
           </p>
         </div>
 
@@ -88,7 +88,7 @@ export default function NotFound() {
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            © 2025 Axios EDIC Contest Platform. All rights reserved.
+            © 2025 Techpreneur 3.0 Summit. All rights reserved.
           </p>
         </div>
       </div>

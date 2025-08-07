@@ -25,13 +25,13 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-4">
-            <span className="text-2xl font-bold text-white">AX</span>
+            <span className="text-2xl font-bold text-white">T3</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Axios EDIC
+            Techpreneur 3.0 Summit
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Contest Platform
+            Innovation Challenge
           </p>
         </div>
 

@@ -80,22 +80,21 @@ export async function GET(request: NextRequest) {
     }
     
     // Transform data for better frontend consumption
-    const transformedUsers = users?.map((user: {
-      id: string;
-      username: string;
-      email: string;
-      is_active: boolean;
-      created_at: string;
-      last_login: string | null;
-      team_members: any[];
-    }) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transformedUsers = users?.map((user: Record<string, any>) => ({
       ...user,
-      teamMembership: user.team_members?.[0] ? {
-        teamId: user.team_members[0].teams?.id,
-        teamName: user.team_members[0].teams?.team_name,
-        teamCode: user.team_members[0].teams?.team_code,
-        role: user.team_members[0].role,
-        joinedAt: user.team_members[0].joined_at
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      teamMembership: (user.team_members as any[])?.[0] ? {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        teamId: (user.team_members as any[])[0].teams?.id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        teamName: (user.team_members as any[])[0].teams?.team_name,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        teamCode: (user.team_members as any[])[0].teams?.team_code,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        role: (user.team_members as any[])[0].role,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        joinedAt: (user.team_members as any[])[0].joined_at
       } : null
     })) || [];
     
@@ -103,8 +102,8 @@ export async function GET(request: NextRequest) {
       users: transformedUsers,
       totalUsers: users?.length || 0,
       stats: {
-        activeUsers: users?.filter((u: { is_active: boolean }) => u.is_active).length || 0,
-        usersInTeams: users?.filter((u: { team_members: any[] }) => u.team_members?.length > 0).length || 0
+        activeUsers: users?.filter((u: Record<string, unknown>) => u.is_active as boolean).length || 0,
+        usersInTeams: users?.filter((u: Record<string, unknown>) => ((u.team_members as unknown[]) || []).length > 0).length || 0
       }
     });
     
