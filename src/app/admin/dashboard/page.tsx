@@ -278,7 +278,10 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   View and manage all registered teams, update scores, and handle penalties.
                 </p>
-                <SimpleButton className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                <SimpleButton 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => router.push('/admin/teams')}
+                >
                   Manage Teams
                 </SimpleButton>
               </SimpleCard>
@@ -288,7 +291,10 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Configure contest rounds, timings, and platform settings.
                 </p>
-                <SimpleButton className="w-full bg-green-600 hover:bg-green-700 text-white">
+                <SimpleButton 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => router.push('/admin/config')}
+                >
                   Configure Contest
                 </SimpleButton>
               </SimpleCard>
@@ -298,7 +304,10 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   Monitor live submissions, team progress, and system performance.
                 </p>
-                <SimpleButton className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                <SimpleButton 
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => router.push('/admin/monitoring')}
+                >
                   Live Monitor
                 </SimpleButton>
               </SimpleCard>
