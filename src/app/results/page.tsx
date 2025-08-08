@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { VotingComponent } from '@/components/voting/VotingComponent';
+import { ResultsComponent } from '@/components/results/ResultsComponent';
 import { useAuth } from '@/context/AuthContext';
 import { SimpleCard, SimpleCardContent, SimpleCardDescription, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
-import { AlertCircle, Users, Timer, Trophy } from 'lucide-react';
+import { AlertCircle, Trophy, Target, BarChart3, Crown } from 'lucide-react';
 import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
 
-export default function VotingPage() {
+export default function ResultsPage() {
   const { user, team, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
 
@@ -28,7 +28,7 @@ export default function VotingPage() {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-600 dark:text-gray-400">Loading voting system...</p>
+          <p className="text-lg text-gray-600 dark:text-gray-400">Loading results...</p>
         </div>
       </div>
     );
@@ -42,7 +42,7 @@ export default function VotingPage() {
             <AlertCircle className="h-12 w-12 text-orange-500 mx-auto mb-4" />
             <SimpleCardTitle>Authentication Required</SimpleCardTitle>
             <SimpleCardDescription>
-              You need to be signed in with a team account to participate in voting.
+              You need to be signed in with a team account to view results.
             </SimpleCardDescription>
           </SimpleCardHeader>
           <SimpleCardContent className="text-center">
@@ -73,21 +73,21 @@ export default function VotingPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
-                <Trophy className="h-6 w-6 text-white" />
+              <div className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl">
+                <Crown className="h-6 w-6 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Round 2: Team Voting
+                  Competition Results
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Pitch presentations and peer evaluation
+                  Techpreneur 3.0 Summit - Final Standings
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                <Users className="h-4 w-4" />
+                <Trophy className="h-4 w-4" />
                 <span>{team.name}</span>
               </div>
               <a
@@ -105,65 +105,64 @@ export default function VotingPage() {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <SimpleAlert className="mb-6">
-            <Timer className="h-4 w-4" />
+            <BarChart3 className="h-4 w-4" />
             <SimpleAlertDescription>
-              <strong>Voting Rules:</strong> Each team presents for 90 seconds, followed by 30 seconds of voting. 
-              You have a maximum of 3 downvotes and unlimited upvotes. You cannot vote for your own team.
+              <strong>Competition Overview:</strong> Results include quiz performance, peer voting scores, and offline evaluation. 
+              The final score is weighted: 40% online (quiz + voting) and 60% offline evaluation.
             </SimpleAlertDescription>
           </SimpleAlert>
 
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             <SimpleCard>
               <SimpleCardHeader className="text-center pb-2">
-                <Users className="h-8 w-8 mx-auto text-blue-500 mb-2" />
-                <SimpleCardTitle className="text-lg">Your Team</SimpleCardTitle>
+                <Target className="h-8 w-8 mx-auto text-blue-500 mb-2" />
+                <SimpleCardTitle className="text-lg">Quiz Round</SimpleCardTitle>
               </SimpleCardHeader>
               <SimpleCardContent className="text-center">
-                <p className="font-semibold text-lg text-blue-600 dark:text-blue-400">
-                  {team.name}
+                <p className="font-semibold text-blue-600 dark:text-blue-400">
+                  15 MCQ Questions
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {team.members.length} members
+                  Max 60 points
                 </p>
               </SimpleCardContent>
             </SimpleCard>
 
             <SimpleCard>
               <SimpleCardHeader className="text-center pb-2">
-                <Timer className="h-8 w-8 mx-auto text-green-500 mb-2" />
-                <SimpleCardTitle className="text-lg">Phase Duration</SimpleCardTitle>
+                <Trophy className="h-8 w-8 mx-auto text-green-500 mb-2" />
+                <SimpleCardTitle className="text-lg">Peer Voting</SimpleCardTitle>
               </SimpleCardHeader>
               <SimpleCardContent className="text-center">
                 <p className="font-semibold text-green-600 dark:text-green-400">
-                  90s Pitch + 30s Vote
+                  Team Presentations
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Per team presentation
+                  Upvotes - Downvotes
                 </p>
               </SimpleCardContent>
             </SimpleCard>
 
             <SimpleCard>
               <SimpleCardHeader className="text-center pb-2">
-                <Trophy className="h-8 w-8 mx-auto text-purple-500 mb-2" />
-                <SimpleCardTitle className="text-lg">Voting Power</SimpleCardTitle>
+                <BarChart3 className="h-8 w-8 mx-auto text-purple-500 mb-2" />
+                <SimpleCardTitle className="text-lg">Offline Evaluation</SimpleCardTitle>
               </SimpleCardHeader>
               <SimpleCardContent className="text-center">
                 <p className="font-semibold text-purple-600 dark:text-purple-400">
-                  3 Downvotes Max
+                  Expert Assessment
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Unlimited upvotes
+                  Max 100 points
                 </p>
               </SimpleCardContent>
             </SimpleCard>
           </div>
         </div>
 
-        {/* Voting Component */}
-        <VotingComponent teamId={team.id} teamName={team.name} />
+        {/* Results Component */}
+        <ResultsComponent teamId={team.id} teamName={team.name} />
       </main>
     </div>
   );
 }
-
