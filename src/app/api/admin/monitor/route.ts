@@ -1,12 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { supabase } from '@/lib/supabase';
+import { query, transaction } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
   username: string;
   role: string;
   sessionType: string;
+}
+
+interface DatabaseRecord {
+  count?: string;
+  contest_active?: boolean;
+  is_active?: boolean;
+  phase?: string;
+  created_at?: string;
+  completed_members?: string;
+  teams_with_submissions?: string;
+  avg_score?: string;
+  submissions?: string;
+  hour?: string;
+  id?: string;
+  action?: string;
+  target_type?: string;
+  details?: Record<string, unknown>;
+  timestamp?: string;
+  username?: string;
+  team_id?: string;
+  team_name?: string;
+  current_round?: string;
+  total_score?: number;
+  quiz_score?: number;
+  voting_score?: number;
+  last_activity?: string;
+  status?: string;
 }
 
 async function verifyAdminSession(token: string) {
@@ -25,14 +52,14 @@ async function verifyAdminSession(token: string) {
   }
   
   try {
-    const { data: sessions, error } = await supabase
-      .from('admin_sessions')
-      .select('*')
-      .eq('session_token', token)
-      .gt('expires_at', new Date().toISOString())
-      .limit(1);
+    const sessions = await query(
+      `SELECT * FROM admin_sessions 
+       WHERE session_token = $1 AND expires_at > NOW()
+       LIMIT 1`,
+      [token]
+    );
     
-    if (error || !sessions || sessions.length === 0) {
+    if (!sessions || sessions.length === 0) {
       throw new Error('Session expired');
     }
     
@@ -56,108 +83,192 @@ export async function GET(request: NextRequest) {
     
     await verifyAdminSession(token);
     
-    // Provide fallback data structure that matches what the dashboard expects
-    const fallbackData = {
-      overview: {
-        totalTeams: 0,
-        totalUsers: 0,
-        activeTeams: 0,
-        contestActive: false
-      },
-      recentActivity: {
-        submissions: [],
-        adminActions: []
-      },
-      activeTeams: [],
-      submissionStats: [],
-      performanceMetrics: [],
-      systemStatus: {
-        databaseConnected: true,
-        contestConfig: null,
-        lastUpdated: new Date().toISOString()
-      }
-    };
-
     try {
-      // Get real-time statistics
+      // Get real-time statistics from PostgreSQL
       const now = new Date();
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
-      // Get basic counts with error handling
-      const { data: teamCount, error: teamError } = await supabase
-        .from('teams')
-        .select('id', { count: 'exact', head: true });
+      // Get basic counts
+      const teamCountResult = await query('SELECT COUNT(*) as count FROM teams');
+      const userCountResult = await query('SELECT COUNT(*) as count FROM users');
       
-      const { data: userCount, error: userError } = await supabase
-        .from('users')
-        .select('id', { count: 'exact', head: true });
-      
-      // Get active teams (teams with recent activity) with error handling
-      const { data: activeTeams } = await supabase
-        .from('teams')
-        .select(`
+      // Get active teams (teams with recent activity)
+      const activeTeamsResult = await query(`
+        SELECT 
           id,
           team_name,
           current_round,
           total_score,
-          last_activity
-        `)
-        .gte('last_activity', oneDayAgo.toISOString())
-        .order('last_activity', { ascending: false })
-        .limit(20);
+          last_activity,
+          quiz_score,
+          voting_score,
+          status
+        FROM teams
+        WHERE last_activity >= $1
+        ORDER BY last_activity DESC
+        LIMIT 20
+      `, [oneDayAgo]);
       
-      // Get system status with error handling
-      const { data: contestConfig } = await supabase
-        .from('contest_config')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1);
+      // Get contest configuration
+      const contestConfigResult = await query(`
+        SELECT * FROM contest_config
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
       
-      // Get recent admin actions with error handling
-      const { data: recentAdminActions } = await supabase
-        .from('admin_logs')
-        .select(`
-          id,
-          action,
-          target_type,
-          details,
-          timestamp,
-          admin_users (username)
-        `)
-        .gte('timestamp', oneDayAgo.toISOString())
-        .order('timestamp', { ascending: false })
-        .limit(10);
+      // Get recent admin actions
+      const recentAdminActionsResult = await query(`
+        SELECT 
+          al.id,
+          al.action,
+          al.target_type,
+          al.details,
+          al.timestamp,
+          au.username
+        FROM admin_logs al
+        LEFT JOIN admin_users au ON al.admin_user_id = au.id
+        WHERE al.timestamp >= $1
+        ORDER BY al.timestamp DESC
+        LIMIT 10
+      `, [oneDayAgo]);
+
+      // Get voting session status
+      const votingSessionResult = await query(`
+        SELECT phase, is_active, created_at
+        FROM voting_sessions 
+        WHERE is_active = true
+        ORDER BY created_at DESC
+        LIMIT 1
+      `);
+
+      // Get quiz completion stats
+      const quizStatsResult = await query(`
+        SELECT 
+          COUNT(DISTINCT member_name) as completed_members,
+          COUNT(DISTINCT team_id) as teams_with_submissions,
+          AVG(points_earned) as avg_score
+        FROM quiz_responses
+        WHERE created_at >= $1
+      `, [oneDayAgo]);
+
+      // Get submission activity
+      const submissionStatsResult = await query(`
+        SELECT 
+          DATE_TRUNC('hour', created_at) as hour,
+          COUNT(*) as submissions
+        FROM quiz_responses
+        WHERE created_at >= $1
+        GROUP BY DATE_TRUNC('hour', created_at)
+        ORDER BY hour DESC
+      `, [oneDayAgo]);
       
-      // If any critical query fails, return fallback data
-      if (teamError || userError) {
-        console.log('Database tables not ready, returning fallback data');
-        return NextResponse.json(fallbackData);
-      }
-      
+      const totalTeams = parseInt((teamCountResult[0] as DatabaseRecord)?.count || '0') || 0;
+      const totalUsers = parseInt((userCountResult[0] as DatabaseRecord)?.count || '0') || 0;
+      const activeTeams = activeTeamsResult || [];
+      const contestConfig = (contestConfigResult[0] as DatabaseRecord) || null;
+      const recentAdminActions = recentAdminActionsResult || [];
+      const votingSession = (votingSessionResult[0] as DatabaseRecord) || null;
+      const quizStats = (quizStatsResult[0] as DatabaseRecord) || { completed_members: '0', teams_with_submissions: '0', avg_score: '0' };
+      const submissionStats = submissionStatsResult || [];
+
       return NextResponse.json({
         overview: {
-          totalTeams: teamCount?.length || 0,
-          totalUsers: userCount?.length || 0,
-          activeTeams: activeTeams?.length || 0,
-          contestActive: contestConfig?.[0]?.contest_active || false
+          totalTeams,
+          totalUsers,
+          activeTeams: activeTeams.length,
+          contestActive: contestConfig?.contest_active || false,
+          votingActive: votingSession?.is_active || false,
+          votingPhase: votingSession?.phase || 'waiting'
         },
         recentActivity: {
-          submissions: [], // No submissions table in our current schema
-          adminActions: recentAdminActions || []
+          submissions: submissionStats.map((stat: unknown) => {
+            const record = stat as DatabaseRecord;
+            return {
+              hour: record.hour,
+              count: parseInt(record.submissions || '0')
+            };
+          }),
+          adminActions: recentAdminActions.map((action: unknown) => {
+            const record = action as DatabaseRecord;
+            return {
+              id: record.id,
+              action: record.action,
+              targetType: record.target_type,
+              details: record.details,
+              timestamp: record.timestamp,
+              adminUsername: record.username
+            };
+          })
         },
-        activeTeams: activeTeams || [],
-        submissionStats: [],
-        performanceMetrics: [],
+        activeTeams: activeTeams.map((team: unknown) => {
+          const record = team as DatabaseRecord;
+          return {
+            id: record.id,
+            teamName: record.team_name,
+            currentRound: record.current_round,
+            totalScore: record.total_score || 0,
+            quizScore: record.quiz_score || 0,
+            votingScore: record.voting_score || 0,
+            lastActivity: record.last_activity,
+            status: record.status
+          };
+        }),
+        submissionStats: submissionStats.map((stat: unknown) => {
+          const record = stat as DatabaseRecord;
+          return {
+            time: record.hour,
+            submissions: parseInt(record.submissions || '0')
+          };
+        }),
+        performanceMetrics: {
+          completedMembers: parseInt(quizStats.completed_members || '0') || 0,
+          teamsWithSubmissions: parseInt(quizStats.teams_with_submissions || '0') || 0,
+          averageQuizScore: parseFloat(quizStats.avg_score || '0') || 0
+        },
         systemStatus: {
           databaseConnected: true,
-          contestConfig: contestConfig?.[0] || null,
+          contestConfig,
+          votingSession: votingSession ? {
+            phase: votingSession.phase,
+            isActive: votingSession.is_active,
+            createdAt: votingSession.created_at
+          } : null,
           lastUpdated: new Date().toISOString()
         }
       });
       
     } catch (dbError) {
-      console.log('Database error, returning fallback data:', dbError);
-      return NextResponse.json(fallbackData);
+      console.error('Database error in admin monitor:', dbError);
+      
+      // Return minimal fallback data
+      return NextResponse.json({
+        overview: {
+          totalTeams: 0,
+          totalUsers: 0,
+          activeTeams: 0,
+          contestActive: false,
+          votingActive: false,
+          votingPhase: 'waiting'
+        },
+        recentActivity: {
+          submissions: [],
+          adminActions: []
+        },
+        activeTeams: [],
+        submissionStats: [],
+        performanceMetrics: {
+          completedMembers: 0,
+          teamsWithSubmissions: 0,
+          averageQuizScore: 0
+        },
+        systemStatus: {
+          databaseConnected: false,
+          contestConfig: null,
+          votingSession: null,
+          lastUpdated: new Date().toISOString(),
+          error: 'Database connection failed'
+        }
+      });
     }
     
   } catch (error) {
@@ -186,60 +297,96 @@ export async function POST(request: NextRequest) {
     
     switch (action) {
       case 'emergency_stop':
-        // Emergency stop contest
-        await supabase
-          .from('contest_config')
-          .update({ 
-            contest_active: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', 1);
-        
-        await supabase
-          .from('admin_logs')
-          .insert({
-            admin_user_id: admin.adminId,
-            action: 'emergency_stop',
-            target_type: 'contest',
-            details: { reason: data?.reason || 'Emergency stop initiated' },
-            ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-          });
+        await transaction(async (client) => {
+          // Emergency stop contest
+          await client.query(`
+            UPDATE contest_config 
+            SET contest_active = false, updated_at = NOW()
+            WHERE id = 1
+          `);
+          
+          // Log the action
+          await client.query(`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            admin.adminId,
+            'emergency_stop',
+            'contest',
+            JSON.stringify({ reason: data?.reason || 'Emergency stop initiated' }),
+            request.headers.get('x-forwarded-for') || 'unknown'
+          ]);
+        });
         
         return NextResponse.json({ message: 'Contest stopped successfully' });
         
       case 'restart_contest':
-        // Restart contest
-        await supabase
-          .from('contest_config')
-          .update({ 
-            contest_active: true,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', 1);
-        
-        await supabase
-          .from('admin_logs')
-          .insert({
-            admin_user_id: admin.adminId,
-            action: 'restart_contest',
-            target_type: 'contest',
-            details: { reason: data?.reason || 'Contest restarted' },
-            ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-          });
+        await transaction(async (client) => {
+          // Restart contest
+          await client.query(`
+            UPDATE contest_config 
+            SET contest_active = true, updated_at = NOW()
+            WHERE id = 1
+          `);
+          
+          // Log the action
+          await client.query(`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            admin.adminId,
+            'restart_contest',
+            'contest',
+            JSON.stringify({ reason: data?.reason || 'Contest restarted' }),
+            request.headers.get('x-forwarded-for') || 'unknown'
+          ]);
+        });
         
         return NextResponse.json({ message: 'Contest restarted successfully' });
+
+      case 'start_voting':
+        await transaction(async (client) => {
+          // Create or activate voting session
+          await client.query(`
+            UPDATE voting_sessions SET is_active = false WHERE is_active = true
+          `);
+          
+          const result = await client.query(`
+            INSERT INTO voting_sessions (
+              round_id, phase, phase_start_time, phase_end_time,
+              pitch_duration, voting_duration, is_active
+            )
+            VALUES ($1, $2, NOW(), NOW(), $3, $4, $5)
+            RETURNING id
+          `, ['round2', 'waiting', 90, 30, true]);
+          
+          // Log the action
+          await client.query(`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
+            VALUES ($1, $2, $3, $4, $5)
+          `, [
+            admin.adminId,
+            'start_voting',
+            'voting_session',
+            JSON.stringify({ sessionId: result.rows[0].id }),
+            request.headers.get('x-forwarded-for') || 'unknown'
+          ]);
+        });
+        
+        return NextResponse.json({ message: 'Voting session started successfully' });
         
       case 'clear_cache':
-        // This would clear any caching systems
-        await supabase
-          .from('admin_logs')
-          .insert({
-            admin_user_id: admin.adminId,
-            action: 'clear_cache',
-            target_type: 'system',
-            details: { cache_type: data?.cacheType || 'all' },
-            ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-          });
+        // Log cache clear action
+        await query(`
+          INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
+          VALUES ($1, $2, $3, $4, $5)
+        `, [
+          admin.adminId,
+          'clear_cache',
+          'system',
+          JSON.stringify({ cache_type: data?.cacheType || 'all' }),
+          request.headers.get('x-forwarded-for') || 'unknown'
+        ]);
         
         return NextResponse.json({ message: 'Cache cleared successfully' });
         
