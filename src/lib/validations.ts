@@ -89,7 +89,7 @@ export const teamSchema = z.object({
   id: z.string(),
   name: z.string().min(2, 'Team name must be at least 2 characters'),
   leader: teamMemberSchema,
-  members: z.array(teamMemberSchema).min(1, 'At least one member required').max(4, 'Maximum 4 members allowed'),
+  members: z.array(teamMemberSchema).min(1, 'At least one member required').max(5, 'Maximum 5 members allowed'),
   teamPassword: z.string().min(4, 'Team password must be at least 4 characters'),
   createdAt: z.date(),
 });

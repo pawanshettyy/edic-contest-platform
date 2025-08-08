@@ -50,7 +50,7 @@ export default function Home() {
             solving real-world problems and showcasing entrepreneurial excellence in a dynamic environment.
           </p>
           <div className="mt-6 text-lg text-gray-700 dark:text-gray-300">
-            <p className="font-semibold">📅 3-Day Event | 🏆 3 Challenging Rounds | 👥 Teams of 4</p>
+            <p className="font-semibold">📅 3-Day Event | 🏆 3 Challenging Rounds | 👥 Teams of 5</p>
             <p className="text-base mt-2 text-gray-600 dark:text-gray-400">More details coming soon...</p>
           </div>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
@@ -96,7 +96,7 @@ export default function Home() {
             </SimpleCardHeader>
             <SimpleCardContent>
               <SimpleCardDescription className="text-center">
-                Collaborate as a team of 4 to develop creative solutions and innovative ideas.
+                Collaborate as a team of 5 to develop creative solutions and innovative ideas.
               </SimpleCardDescription>
             </SimpleCardContent>
           </SimpleCard>

@@ -13,6 +13,7 @@ const signUpSchema = z.object({
   member1Name: z.string().min(1, 'Member 1 name is required'),
   member2Name: z.string().min(1, 'Member 2 name is required'),
   member3Name: z.string().min(1, 'Member 3 name is required'),
+  member4Name: z.string().min(1, 'Member 4 name is required'),
   teamPassword: z.string().min(4, 'Team password must be at least 4 characters'),
   confirmTeamPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
         { id: `member_${Date.now()}_1`, name: validatedData.member1Name, isLeader: false },
         { id: `member_${Date.now()}_2`, name: validatedData.member2Name, isLeader: false },
         { id: `member_${Date.now()}_3`, name: validatedData.member3Name, isLeader: false },
+        { id: `member_${Date.now()}_4`, name: validatedData.member4Name, isLeader: false },
       ],
       createdAt: new Date().toISOString(),
       contestStatus: {

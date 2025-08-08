@@ -22,6 +22,7 @@ export interface SignUpFormData {
   member1Name: string;
   member2Name: string;
   member3Name: string;
+  member4Name: string;
   teamPassword: string;
   confirmTeamPassword: string;
 }

@@ -29,6 +29,7 @@ export const SignUpForm: React.FC = () => {
     member1Name: '',
     member2Name: '',
     member3Name: '',
+    member4Name: '',
     teamPassword: '',
     confirmTeamPassword: '',
   });
@@ -60,7 +61,7 @@ export const SignUpForm: React.FC = () => {
       setError('Team name is required');
       return false;
     }
-    if (!formData.member1Name.trim() || !formData.member2Name.trim() || !formData.member3Name.trim()) {
+    if (!formData.member1Name.trim() || !formData.member2Name.trim() || !formData.member3Name.trim() || !formData.member4Name.trim()) {
       setError('All team member names are required');
       return false;
     }
@@ -241,6 +242,18 @@ export const SignUpForm: React.FC = () => {
                     name="member3Name"
                     type="text"
                     value={formData.member3Name}
+                    onChange={handleInputChange}
+                    placeholder="Enter member name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="member4Name">Team Member 5 *</Label>
+                  <Input
+                    id="member4Name"
+                    name="member4Name"
+                    type="text"
+                    value={formData.member4Name}
                     onChange={handleInputChange}
                     placeholder="Enter member name"
                     required

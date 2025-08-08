@@ -169,7 +169,7 @@ CREATE TABLE contest_config (
     start_date TIMESTAMP WITH TIME ZONE,
     end_date TIMESTAMP WITH TIME ZONE,
     max_teams INTEGER DEFAULT 1000,
-    team_size INTEGER DEFAULT 4,
+    team_size INTEGER DEFAULT 5,
     registration_open BOOLEAN DEFAULT TRUE,
     contest_active BOOLEAN DEFAULT FALSE,
     current_round INTEGER DEFAULT 1,
@@ -378,7 +378,7 @@ INSERT INTO contest_config (
   NOW() + INTERVAL '1 day', 
   NOW() + INTERVAL '4 days',
   500,
-  4,
+  5,
   true,
   false
 ) ON CONFLICT (id) DO NOTHING;
@@ -436,5 +436,5 @@ LIMIT 1;
 -- 1. Default admin credentials: username 'admin', password 'admin123'
 -- 2. CHANGE THE ADMIN PASSWORD immediately after first login!
 -- 3. The contest is set to start tomorrow and run for 3 days
--- 4. Registration is open for up to 500 teams of 4 members each
+-- 4. Registration is open for up to 500 teams of 5 members each
 -- 5. Update contest dates and configuration as needed

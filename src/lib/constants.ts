@@ -3,7 +3,7 @@
 // Contest settings
 export const CONTEST_SETTINGS = {
   MIN_TEAM_SIZE: 1,
-  MAX_TEAM_SIZE: 4,
+  MAX_TEAM_SIZE: 5,
   MIN_TEAMS: 2,
   MAX_TEAMS: 50,
   DEFAULT_QUESTION_TIME: 60, // seconds
