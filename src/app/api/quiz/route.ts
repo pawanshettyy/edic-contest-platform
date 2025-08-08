@@ -280,12 +280,31 @@ const quizSubmissionSchema = z.object({
     questionId: z.string(),
     selectedOptionId: z.string(),
     timeSpent: z.number()
-  }))
+  })),
+  memberName: z.string(),
+  teamName: z.string()
 });
+
+// Store quiz submissions in memory (in production, use database)
+interface QuizAnswer {
+  questionId: string;
+  selectedOptionId: string;
+  points: number;
+  timeSpent: number;
+  answeredAt: Date;
+}
+
+const quizSubmissions = new Map<string, {
+  teamName: string;
+  memberName: string;
+  answers: QuizAnswer[];
+  score: number;
+  submittedAt: Date;
+}>();
 
 export async function GET() {
   try {
-    // Return quiz questions for the team
+    // Return quiz questions for the team member
     return NextResponse.json({
       success: true,
       questions: QUIZ_QUESTIONS.map(q => ({
@@ -316,10 +335,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { answers } = quizSubmissionSchema.parse(body);
+    const { answers, memberName, teamName } = quizSubmissionSchema.parse(body);
+    
+    // Check if this member has already submitted
+    const submissionKey = `${teamName}_${memberName}`;
+    if (quizSubmissions.has(submissionKey)) {
+      return NextResponse.json(
+        { success: false, error: 'Quiz already submitted for this member' },
+        { status: 400 }
+      );
+    }
     
     // Calculate score based on selected options
-    let totalScore = 0;
+    let memberScore = 0;
     const detailedAnswers = answers.map(answer => {
       const question = QUIZ_QUESTIONS.find(q => q.id === answer.questionId);
       if (!question) {
@@ -331,7 +359,7 @@ export async function POST(request: NextRequest) {
         throw new Error(`Option ${answer.selectedOptionId} not found`);
       }
       
-      totalScore += selectedOption.points;
+      memberScore += selectedOption.points;
       
       return {
         questionId: answer.questionId,
@@ -342,29 +370,43 @@ export async function POST(request: NextRequest) {
       };
     });
     
-    // In a real app, save to database
-    const submission = {
-      id: `quiz_${Date.now()}_${Math.random().toString(36).substring(2)}`,
-      teamId: 'team_placeholder', // Get from auth
-      teamName: 'Team Placeholder',
+    // Store member's submission
+    quizSubmissions.set(submissionKey, {
+      teamName,
+      memberName,
       answers: detailedAnswers,
-      totalScore,
-      totalTimeSpent: answers.reduce((total, answer) => total + answer.timeSpent, 0),
-      submittedAt: new Date(),
-      status: 'completed' as const
-    };
+      score: memberScore,
+      submittedAt: new Date()
+    });
+    
+    // Calculate team's accumulated score
+    const teamSubmissions = Array.from(quizSubmissions.values())
+      .filter(submission => submission.teamName === teamName);
+    
+    const teamTotalScore = teamSubmissions.reduce((total, submission) => total + submission.score, 0);
+    const membersCompleted = teamSubmissions.length;
     
     return NextResponse.json({
       success: true,
-      submission,
-      totalScore,
+      memberScore,
+      teamTotalScore,
+      membersCompleted,
       maxPossibleScore: QUIZ_QUESTIONS.reduce((max, q) => 
         max + Math.max(...q.options.map(opt => opt.points)), 0
       ),
-      questionsAnswered: answers.length
+      questionsAnswered: answers.length,
+      message: `Quiz submitted successfully! Your score: ${memberScore}. Team total: ${teamTotalScore} (${membersCompleted} members completed)`
     });
   } catch (error) {
     console.error('Quiz submission error:', error);
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid submission data' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { success: false, error: 'Failed to submit quiz answers' },
       { status: 500 }
