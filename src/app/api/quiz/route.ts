@@ -2,274 +2,279 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 // Sample quiz questions with different scoring patterns
+// Each question has 4 options representing different business approaches:
+// Option A: Capital-related approach
+// Option B: Marketing-related approach  
+// Option C: Strategy-related approach
+// Option D: Team building-related approach
 const QUIZ_QUESTIONS = [
   {
     id: 'q1',
     roundId: 'round2',
-    question: 'Which technology trend is most likely to revolutionize business operations in the next 5 years?',
+    question: 'Your startup is facing slow growth. What should be your primary focus?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q1_a', text: 'Artificial Intelligence and Machine Learning', points: 4 },
-      { id: 'q1_b', text: 'Blockchain Technology', points: 2 },
-      { id: 'q1_c', text: 'Virtual Reality', points: 1 },
-      { id: 'q1_d', text: 'Quantum Computing', points: -1 }
+      { id: 'q1_a', text: 'Secure additional funding to accelerate operations', points: 3, category: 'capital' },
+      { id: 'q1_b', text: 'Launch an aggressive marketing campaign to increase visibility', points: 2, category: 'marketing' },
+      { id: 'q1_c', text: 'Pivot your business model or refine your strategy', points: 4, category: 'strategy' },
+      { id: 'q1_d', text: 'Hire more skilled team members to boost productivity', points: 1, category: 'team' }
     ],
-    explanation: 'AI/ML has the most immediate and widespread impact on business operations.',
+    explanation: 'Strategic refinement often addresses root causes of slow growth most effectively.',
     timeLimit: 45,
     difficulty: 'medium' as const,
-    tags: ['technology', 'business'],
+    tags: ['growth', 'business'],
     orderIndex: 1,
     createdAt: new Date()
   },
   {
     id: 'q2',
     roundId: 'round2',
-    question: 'What is the most critical factor for startup success?',
+    question: 'You have a great product but limited customers. What\'s your next move?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q2_a', text: 'Product-Market Fit', points: 4 },
-      { id: 'q2_b', text: 'Funding Amount', points: -2 },
-      { id: 'q2_c', text: 'Team Experience', points: 3 },
-      { id: 'q2_d', text: 'Marketing Strategy', points: 1 }
+      { id: 'q2_a', text: 'Reduce prices to make the product more affordable', points: 1, category: 'capital' },
+      { id: 'q2_b', text: 'Invest heavily in digital marketing and advertising', points: 4, category: 'marketing' },
+      { id: 'q2_c', text: 'Analyze market positioning and refine target audience', points: 3, category: 'strategy' },
+      { id: 'q2_d', text: 'Build a dedicated sales team to drive customer acquisition', points: 2, category: 'team' }
     ],
-    explanation: 'Product-market fit is the foundation of sustainable business growth.',
+    explanation: 'When you have a great product, marketing is crucial to reach the right customers.',
     timeLimit: 45,
     difficulty: 'medium' as const,
-    tags: ['startup', 'business'],
+    tags: ['marketing', 'customer-acquisition'],
     orderIndex: 2,
     createdAt: new Date()
   },
   {
     id: 'q3',
     roundId: 'round2',
-    question: 'Which business model is most sustainable for a tech startup?',
+    question: 'Your competitor just launched a similar product. How do you respond?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q3_a', text: 'Subscription (SaaS)', points: 3 },
-      { id: 'q3_b', text: 'One-time Purchase', points: 1 },
-      { id: 'q3_c', text: 'Freemium', points: 2 },
-      { id: 'q3_d', text: 'Advertisement-based', points: -1 }
+      { id: 'q3_a', text: 'Lower your prices to stay competitive', points: 2, category: 'capital' },
+      { id: 'q3_b', text: 'Increase marketing spend to outvoice the competition', points: 1, category: 'marketing' },
+      { id: 'q3_c', text: 'Differentiate your offering with unique value propositions', points: 4, category: 'strategy' },
+      { id: 'q3_d', text: 'Expand your team to accelerate product development', points: 3, category: 'team' }
     ],
-    explanation: 'Subscription models provide predictable recurring revenue.',
+    explanation: 'Strategic differentiation creates sustainable competitive advantage.',
     timeLimit: 45,
-    difficulty: 'easy' as const,
-    tags: ['business-model', 'revenue'],
+    difficulty: 'hard' as const,
+    tags: ['competition', 'strategy'],
     orderIndex: 3,
     createdAt: new Date()
   },
   {
     id: 'q4',
     roundId: 'round2',
-    question: 'What is the primary purpose of a Minimum Viable Product (MVP)?',
+    question: 'Your team is struggling with productivity and motivation. What\'s your priority?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q4_a', text: 'Test market demand with minimal resources', points: 4 },
-      { id: 'q4_b', text: 'Build a fully featured product quickly', points: -2 },
-      { id: 'q4_c', text: 'Impress investors', points: 0 },
-      { id: 'q4_d', text: 'Save development costs', points: 1 }
+      { id: 'q4_a', text: 'Offer performance bonuses and salary increases', points: 2, category: 'capital' },
+      { id: 'q4_b', text: 'Create internal marketing campaigns to boost morale', points: 1, category: 'marketing' },
+      { id: 'q4_c', text: 'Restructure workflows and clarify company objectives', points: 3, category: 'strategy' },
+      { id: 'q4_d', text: 'Invest in team building activities and leadership training', points: 4, category: 'team' }
     ],
-    explanation: 'MVP helps validate assumptions and gather user feedback early.',
+    explanation: 'Team building and leadership development address productivity issues at their core.',
     timeLimit: 45,
     difficulty: 'easy' as const,
-    tags: ['mvp', 'product'],
+    tags: ['team', 'productivity'],
     orderIndex: 4,
     createdAt: new Date()
   },
   {
     id: 'q5',
     roundId: 'round2',
-    question: 'Which metric is most important for measuring customer satisfaction?',
+    question: 'You need to enter a new market quickly. What\'s your approach?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q5_a', text: 'Net Promoter Score (NPS)', points: 3 },
-      { id: 'q5_b', text: 'Customer Acquisition Cost', points: 1 },
-      { id: 'q5_c', text: 'Monthly Revenue', points: -1 },
-      { id: 'q5_d', text: 'Customer Lifetime Value', points: 2 }
+      { id: 'q5_a', text: 'Secure venture capital for rapid market entry', points: 2, category: 'capital' },
+      { id: 'q5_b', text: 'Launch targeted advertising campaigns in the new market', points: 3, category: 'marketing' },
+      { id: 'q5_c', text: 'Partner with local companies or acquire market knowledge', points: 4, category: 'strategy' },
+      { id: 'q5_d', text: 'Hire local talent who understand the market dynamics', points: 1, category: 'team' }
     ],
-    explanation: 'NPS directly measures customer satisfaction and loyalty.',
+    explanation: 'Strategic partnerships provide market knowledge and reduce entry risks.',
     timeLimit: 45,
     difficulty: 'medium' as const,
-    tags: ['metrics', 'customer'],
+    tags: ['market-entry', 'expansion'],
     orderIndex: 5,
     createdAt: new Date()
   },
   {
     id: 'q6',
     roundId: 'round2',
-    question: 'What is the best approach for market research?',
+    question: 'Customer feedback indicates your product is too complex. How do you address this?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q6_a', text: 'Direct customer interviews', points: 4 },
-      { id: 'q6_b', text: 'Online surveys only', points: 1 },
-      { id: 'q6_c', text: 'Competitor analysis only', points: 0 },
-      { id: 'q6_d', text: 'Assumptions based on personal experience', points: -3 }
+      { id: 'q6_a', text: 'Reduce the product price to compensate for complexity', points: 1, category: 'capital' },
+      { id: 'q6_b', text: 'Create better tutorials and marketing materials', points: 2, category: 'marketing' },
+      { id: 'q6_c', text: 'Simplify the product design and user experience', points: 4, category: 'strategy' },
+      { id: 'q6_d', text: 'Train customer service team to provide better support', points: 3, category: 'team' }
     ],
-    explanation: 'Direct customer interviews provide the most valuable insights.',
+    explanation: 'Simplifying the product strategically addresses the root cause of complexity.',
     timeLimit: 45,
     difficulty: 'easy' as const,
-    tags: ['market-research', 'customer'],
+    tags: ['product', 'user-experience'],
     orderIndex: 6,
     createdAt: new Date()
   },
   {
     id: 'q7',
     roundId: 'round2',
-    question: 'Which funding stage typically requires a working prototype?',
+    question: 'Your startup is running low on cash. What\'s your immediate priority?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q7_a', text: 'Seed Round', points: 3 },
-      { id: 'q7_b', text: 'Pre-seed', points: 1 },
-      { id: 'q7_c', text: 'Series A', points: 2 },
-      { id: 'q7_d', text: 'Bootstrap', points: -1 }
+      { id: 'q7_a', text: 'Cut all non-essential expenses immediately', points: 4, category: 'capital' },
+      { id: 'q7_b', text: 'Increase marketing to boost revenue quickly', points: 1, category: 'marketing' },
+      { id: 'q7_c', text: 'Pivot to a more profitable business model', points: 3, category: 'strategy' },
+      { id: 'q7_d', text: 'Reduce team size to lower operational costs', points: 2, category: 'team' }
     ],
-    explanation: 'Seed rounds typically expect a working prototype to demonstrate viability.',
+    explanation: 'Cash management is critical - cutting expenses extends runway immediately.',
     timeLimit: 45,
     difficulty: 'medium' as const,
-    tags: ['funding', 'investment'],
+    tags: ['finance', 'cash-flow'],
     orderIndex: 7,
     createdAt: new Date()
   },
   {
     id: 'q8',
     roundId: 'round2',
-    question: 'What is the most effective way to validate a business idea?',
+    question: 'You want to scale your business operations. What\'s your first step?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q8_a', text: 'Get paying customers', points: 4 },
-      { id: 'q8_b', text: 'Create a detailed business plan', points: 0 },
-      { id: 'q8_c', text: 'Survey potential customers', points: 2 },
-      { id: 'q8_d', text: 'Ask friends and family', points: -2 }
+      { id: 'q8_a', text: 'Raise Series A funding to fuel growth', points: 3, category: 'capital' },
+      { id: 'q8_b', text: 'Scale marketing efforts across multiple channels', points: 2, category: 'marketing' },
+      { id: 'q8_c', text: 'Standardize processes and create scalable systems', points: 4, category: 'strategy' },
+      { id: 'q8_d', text: 'Hire managers and build organizational structure', points: 1, category: 'team' }
     ],
-    explanation: 'Paying customers are the strongest validation of business viability.',
+    explanation: 'Scalable systems and processes are the foundation for sustainable growth.',
     timeLimit: 45,
-    difficulty: 'medium' as const,
-    tags: ['validation', 'business'],
+    difficulty: 'hard' as const,
+    tags: ['scaling', 'operations'],
     orderIndex: 8,
     createdAt: new Date()
   },
   {
     id: 'q9',
     roundId: 'round2',
-    question: 'Which is the most important quality for an entrepreneur?',
+    question: 'Your key team member wants to leave the company. How do you handle this?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q9_a', text: 'Resilience and persistence', points: 3 },
-      { id: 'q9_b', text: 'Technical expertise', points: 1 },
-      { id: 'q9_c', text: 'Access to capital', points: 0 },
-      { id: 'q9_d', text: 'Perfect business plan', points: -1 }
+      { id: 'q9_a', text: 'Offer a significant salary increase and equity', points: 2, category: 'capital' },
+      { id: 'q9_b', text: 'Promote their achievements and create retention campaigns', points: 1, category: 'marketing' },
+      { id: 'q9_c', text: 'Restructure their role to match their career goals', points: 3, category: 'strategy' },
+      { id: 'q9_d', text: 'Have open conversations about their concerns and growth', points: 4, category: 'team' }
     ],
-    explanation: 'Resilience helps entrepreneurs overcome inevitable challenges.',
+    explanation: 'Open communication and addressing team member concerns builds stronger retention.',
     timeLimit: 45,
     difficulty: 'easy' as const,
-    tags: ['entrepreneur', 'qualities'],
+    tags: ['retention', 'team-management'],
     orderIndex: 9,
     createdAt: new Date()
   },
   {
     id: 'q10',
     roundId: 'round2',
-    question: 'What is the primary goal of a pitch deck?',
+    question: 'You need to validate a new product idea quickly. What\'s your approach?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q10_a', text: 'Get a follow-up meeting', points: 4 },
-      { id: 'q10_b', text: 'Explain every detail of the business', points: -2 },
-      { id: 'q10_c', text: 'Impress with design', points: 0 },
-      { id: 'q10_d', text: 'Get immediate funding decision', points: -1 }
+      { id: 'q10_a', text: 'Build a minimal prototype with limited budget', points: 3, category: 'capital' },
+      { id: 'q10_b', text: 'Run targeted ads to gauge market interest', points: 2, category: 'marketing' },
+      { id: 'q10_c', text: 'Create landing pages and measure conversion rates', points: 4, category: 'strategy' },
+      { id: 'q10_d', text: 'Form focus groups with potential customers', points: 1, category: 'team' }
     ],
-    explanation: 'Pitch decks should generate interest for deeper conversations.',
+    explanation: 'Landing pages provide quick, data-driven validation with minimal resources.',
     timeLimit: 45,
-    difficulty: 'easy' as const,
-    tags: ['pitch', 'presentation'],
+    difficulty: 'medium' as const,
+    tags: ['validation', 'mvp'],
     orderIndex: 10,
     createdAt: new Date()
   },
   {
     id: 'q11',
     roundId: 'round2',
-    question: 'Which factor is most critical for scaling a business?',
+    question: 'Your product has technical issues affecting user experience. What\'s your priority?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q11_a', text: 'Proven business model', points: 4 },
-      { id: 'q11_b', text: 'Large team', points: -1 },
-      { id: 'q11_c', text: 'Advanced technology', points: 1 },
-      { id: 'q11_d', text: 'Perfect product', points: 0 }
+      { id: 'q11_a', text: 'Invest more in development infrastructure', points: 2, category: 'capital' },
+      { id: 'q11_b', text: 'Communicate transparently with users about fixes', points: 3, category: 'marketing' },
+      { id: 'q11_c', text: 'Prioritize fixing critical bugs over new features', points: 4, category: 'strategy' },
+      { id: 'q11_d', text: 'Hire additional developers and QA specialists', points: 1, category: 'team' }
     ],
-    explanation: 'A proven business model ensures sustainable growth during scaling.',
+    explanation: 'Strategic prioritization of fixes over features maintains user trust and satisfaction.',
     timeLimit: 45,
-    difficulty: 'hard' as const,
-    tags: ['scaling', 'growth'],
+    difficulty: 'easy' as const,
+    tags: ['product', 'technical'],
     orderIndex: 11,
     createdAt: new Date()
   },
   {
     id: 'q12',
     roundId: 'round2',
-    question: 'What is the most common reason for startup failure?',
+    question: 'You want to build strong customer relationships. What\'s most effective?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q12_a', text: 'No market need', points: 4 },
-      { id: 'q12_b', text: 'Ran out of cash', points: 2 },
-      { id: 'q12_c', text: 'Wrong team', points: 1 },
-      { id: 'q12_d', text: 'Competition', points: 0 }
+      { id: 'q12_a', text: 'Offer loyalty programs and financial incentives', points: 1, category: 'capital' },
+      { id: 'q12_b', text: 'Create engaging content and community platforms', points: 4, category: 'marketing' },
+      { id: 'q12_c', text: 'Develop personalized customer journey strategies', points: 3, category: 'strategy' },
+      { id: 'q12_d', text: 'Train staff to provide exceptional customer service', points: 2, category: 'team' }
     ],
-    explanation: 'Building something people don\'t want is the #1 startup killer.',
+    explanation: 'Engaging content and community building create lasting emotional connections with customers.',
     timeLimit: 45,
     difficulty: 'medium' as const,
-    tags: ['failure', 'market'],
+    tags: ['customer-relationship', 'engagement'],
     orderIndex: 12,
     createdAt: new Date()
   },
   {
     id: 'q13',
     roundId: 'round2',
-    question: 'Which is the best strategy for customer acquisition?',
+    question: 'Your industry is facing economic uncertainty. How do you prepare?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q13_a', text: 'Focus on one channel that works', points: 3 },
-      { id: 'q13_b', text: 'Try all channels simultaneously', points: -2 },
-      { id: 'q13_c', text: 'Only use paid advertising', points: 0 },
-      { id: 'q13_d', text: 'Rely on word of mouth only', points: 1 }
+      { id: 'q13_a', text: 'Build larger cash reserves and reduce spending', points: 4, category: 'capital' },
+      { id: 'q13_b', text: 'Shift marketing focus to value-based messaging', points: 2, category: 'marketing' },
+      { id: 'q13_c', text: 'Diversify revenue streams and business models', points: 3, category: 'strategy' },
+      { id: 'q13_d', text: 'Cross-train team members for operational flexibility', points: 1, category: 'team' }
     ],
-    explanation: 'Focusing on one effective channel leads to better ROI and learning.',
+    explanation: 'Strong cash reserves provide the most immediate protection during economic uncertainty.',
     timeLimit: 45,
-    difficulty: 'medium' as const,
-    tags: ['marketing', 'acquisition'],
+    difficulty: 'hard' as const,
+    tags: ['risk-management', 'economics'],
     orderIndex: 13,
     createdAt: new Date()
   },
   {
     id: 'q14',
     roundId: 'round2',
-    question: 'What is the most important aspect of company culture?',
+    question: 'You need to make your company more innovative. What\'s your focus?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q14_a', text: 'Clear values and mission', points: 3 },
-      { id: 'q14_b', text: 'Fun office environment', points: 1 },
-      { id: 'q14_c', text: 'High salaries', points: 0 },
-      { id: 'q14_d', text: 'Flexible work hours', points: 2 }
+      { id: 'q14_a', text: 'Allocate budget for R&D and innovation projects', points: 2, category: 'capital' },
+      { id: 'q14_b', text: 'Promote innovation achievements and success stories', points: 1, category: 'marketing' },
+      { id: 'q14_c', text: 'Implement structured innovation processes and frameworks', points: 3, category: 'strategy' },
+      { id: 'q14_d', text: 'Foster creative culture and encourage experimentation', points: 4, category: 'team' }
     ],
-    explanation: 'Clear values guide decision-making and attract right talent.',
+    explanation: 'A creative team culture is the foundation of sustainable innovation.',
     timeLimit: 45,
-    difficulty: 'easy' as const,
-    tags: ['culture', 'values'],
+    difficulty: 'medium' as const,
+    tags: ['innovation', 'culture'],
     orderIndex: 14,
     createdAt: new Date()
   },
   {
     id: 'q15',
     roundId: 'round2',
-    question: 'Which metric best indicates product-market fit?',
+    question: 'Your startup needs to establish credibility in the market. What\'s your approach?',
     type: 'multiple_choice' as const,
     options: [
-      { id: 'q15_a', text: 'High user retention rates', points: 4 },
-      { id: 'q15_b', text: 'Large number of signups', points: 1 },
-      { id: 'q15_c', text: 'Media coverage', points: -1 },
-      { id: 'q15_d', text: 'Investor interest', points: 0 }
+      { id: 'q15_a', text: 'Secure high-profile investors and funding announcements', points: 3, category: 'capital' },
+      { id: 'q15_b', text: 'Build thought leadership through content and PR', points: 4, category: 'marketing' },
+      { id: 'q15_c', text: 'Partner with established companies and get certifications', points: 2, category: 'strategy' },
+      { id: 'q15_d', text: 'Hire industry veterans and advisory board members', points: 1, category: 'team' }
     ],
-    explanation: 'High retention indicates users find real value in the product.',
+    explanation: 'Thought leadership and content marketing build authentic credibility over time.',
     timeLimit: 45,
-    difficulty: 'hard' as const,
-    tags: ['product-market-fit', 'metrics'],
+    difficulty: 'medium' as const,
+    tags: ['credibility', 'thought-leadership'],
     orderIndex: 15,
     createdAt: new Date()
   }
@@ -290,8 +295,16 @@ interface QuizAnswer {
   questionId: string;
   selectedOptionId: string;
   points: number;
+  category: string;
   timeSpent: number;
   answeredAt: Date;
+}
+
+interface ApproachScores {
+  capital: number;
+  marketing: number;
+  strategy: number;
+  team: number;
 }
 
 const quizSubmissions = new Map<string, {
@@ -299,21 +312,43 @@ const quizSubmissions = new Map<string, {
   memberName: string;
   answers: QuizAnswer[];
   score: number;
+  approachScores: ApproachScores;
   submittedAt: Date;
 }>();
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const memberName = searchParams.get('memberName');
+    const teamName = searchParams.get('teamName');
+    
+    // Check if this member has already submitted
+    let hasSubmitted = false;
+    let existingSubmission = null;
+    
+    if (memberName && teamName) {
+      const submissionKey = `${teamName}_${memberName}`;
+      existingSubmission = quizSubmissions.get(submissionKey);
+      hasSubmitted = !!existingSubmission;
+    }
+    
     // Return quiz questions for the team member
     return NextResponse.json({
       success: true,
+      hasSubmitted,
+      existingSubmission: hasSubmitted && existingSubmission ? {
+        score: existingSubmission.score,
+        submittedAt: existingSubmission.submittedAt,
+        approachScores: existingSubmission.approachScores
+      } : null,
       questions: QUIZ_QUESTIONS.map(q => ({
         id: q.id,
         question: q.question,
         type: q.type,
         options: q.options.map(opt => ({
           id: opt.id,
-          text: opt.text
+          text: opt.text,
+          category: opt.category
           // Don't send points to frontend for security
         })),
         timeLimit: q.timeLimit,
@@ -348,6 +383,13 @@ export async function POST(request: NextRequest) {
     
     // Calculate score based on selected options
     let memberScore = 0;
+    const memberApproachScores: ApproachScores = {
+      capital: 0,
+      marketing: 0,
+      strategy: 0,
+      team: 0
+    };
+    
     const detailedAnswers = answers.map(answer => {
       const question = QUIZ_QUESTIONS.find(q => q.id === answer.questionId);
       if (!question) {
@@ -361,10 +403,17 @@ export async function POST(request: NextRequest) {
       
       memberScore += selectedOption.points;
       
+      // Add to approach-specific score
+      const category = selectedOption.category as keyof ApproachScores;
+      if (category && memberApproachScores[category] !== undefined) {
+        memberApproachScores[category] += selectedOption.points;
+      }
+      
       return {
         questionId: answer.questionId,
         selectedOptionId: answer.selectedOptionId,
         points: selectedOption.points,
+        category: selectedOption.category || 'unknown',
         timeSpent: answer.timeSpent,
         answeredAt: new Date()
       };
@@ -376,6 +425,7 @@ export async function POST(request: NextRequest) {
       memberName,
       answers: detailedAnswers,
       score: memberScore,
+      approachScores: memberApproachScores,
       submittedAt: new Date()
     });
     
@@ -386,6 +436,21 @@ export async function POST(request: NextRequest) {
     const teamTotalScore = teamSubmissions.reduce((total, submission) => total + submission.score, 0);
     const membersCompleted = teamSubmissions.length;
     
+    // Calculate team approach scores
+    const teamApproachScores: ApproachScores = {
+      capital: 0,
+      marketing: 0,
+      strategy: 0,
+      team: 0
+    };
+    
+    teamSubmissions.forEach(submission => {
+      teamApproachScores.capital += submission.approachScores.capital;
+      teamApproachScores.marketing += submission.approachScores.marketing;
+      teamApproachScores.strategy += submission.approachScores.strategy;
+      teamApproachScores.team += submission.approachScores.team;
+    });
+    
     return NextResponse.json({
       success: true,
       memberScore,
@@ -395,6 +460,8 @@ export async function POST(request: NextRequest) {
         max + Math.max(...q.options.map(opt => opt.points)), 0
       ),
       questionsAnswered: answers.length,
+      memberApproachScores,
+      teamApproachScores,
       message: `Quiz submitted successfully! Your score: ${memberScore}. Team total: ${teamTotalScore} (${membersCompleted} members completed)`
     });
   } catch (error) {

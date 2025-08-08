@@ -4,20 +4,28 @@ import { useState, useEffect, useCallback } from 'react';
 import { SimpleCard, SimpleCardContent, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
 import { SimpleButton } from '@/components/ui/simple-button';
 import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
-import { Timer, Users, ArrowUp, ArrowDown, Clock, Trophy, PlayCircle, PauseCircle } from 'lucide-react';
+import { Timer, Users, ArrowUp, ArrowDown, Clock, Trophy, PlayCircle, PauseCircle, Shield } from 'lucide-react';
 import { VotingSession, VotingPhase, VoteType } from '@/types/voting-enhanced';
+import { useAuth } from '@/context/AuthContext';
 
 interface VotingComponentProps {
-  teamId: string;
-  teamName: string;
+  teamId?: string;
+  teamName?: string;
 }
 
-export function VotingComponent({ teamId }: VotingComponentProps) {
+export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
+  const { user, team } = useAuth();
   const [session, setSession] = useState<VotingSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [voting, setVoting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Use team from auth context or prop
+  const teamId = team?.name || propTeamId;
+
+  // Check if user is team leader
+  const isTeamLeader = user?.isLeader === true;
 
   // Fetch voting session status
   const fetchSession = useCallback(async () => {
@@ -95,6 +103,49 @@ export function VotingComponent({ teamId }: VotingComponentProps) {
     const interval = setInterval(fetchSession, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, [fetchSession]);
+
+  // Check authentication and team leader status
+  if (!user || !team) {
+    return (
+      <SimpleCard className="w-full max-w-2xl mx-auto">
+        <SimpleCardHeader>
+          <SimpleCardTitle>Authentication Required</SimpleCardTitle>
+        </SimpleCardHeader>
+        <SimpleCardContent>
+          <SimpleAlert variant="destructive">
+            <SimpleAlertDescription>
+              Please sign in to your team account to access voting.
+            </SimpleAlertDescription>
+          </SimpleAlert>
+        </SimpleCardContent>
+      </SimpleCard>
+    );
+  }
+
+  if (!isTeamLeader) {
+    return (
+      <SimpleCard className="w-full max-w-2xl mx-auto">
+        <SimpleCardHeader>
+          <SimpleCardTitle className="flex items-center space-x-2">
+            <Shield className="h-5 w-5 text-orange-500" />
+            <span>Team Leader Access Required</span>
+          </SimpleCardTitle>
+        </SimpleCardHeader>
+        <SimpleCardContent>
+          <SimpleAlert variant="destructive">
+            <SimpleAlertDescription>
+              <strong>Voting is restricted to team leaders only.</strong>
+              <br />
+              You are signed in as <strong>{user.name}</strong> ({user.isLeader ? 'Leader' : 'Member'}) 
+              from team <strong>{team.name}</strong>.
+              <br />
+              Only the team leader can vote for your team. Please ask your team leader to handle voting.
+            </SimpleAlertDescription>
+          </SimpleAlert>
+        </SimpleCardContent>
+      </SimpleCard>
+    );
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

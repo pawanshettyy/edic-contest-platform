@@ -20,7 +20,8 @@ import {
   TrendingUp,
   Play,
   Pause,
-  Square
+  Square,
+  Vote
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -70,6 +71,8 @@ export default function RealTimeMonitoringPage() {
   const [error, setError] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<TeamActivity | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [startingVoting, setStartingVoting] = useState(false);
+  const [votingStatus, setVotingStatus] = useState<'waiting' | 'active' | 'completed'>('waiting');
 
   const { admin, loading: contextLoading } = useAdmin();
   const router = useRouter();
@@ -83,6 +86,7 @@ export default function RealTimeMonitoringPage() {
   useEffect(() => {
     if (admin) {
       fetchData();
+      fetchVotingStatus(); // Fetch voting status on load
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [admin]);
@@ -93,6 +97,7 @@ export default function RealTimeMonitoringPage() {
     if (admin && autoRefresh) {
       interval = setInterval(() => {
         fetchData();
+        fetchVotingStatus(); // Also refresh voting status
       }, 5000); // Update every 5 seconds
     }
     
@@ -186,20 +191,24 @@ export default function RealTimeMonitoringPage() {
         {
           roundId: 'round1',
           roundName: 'Quiz Round',
-          isActive: true,
+          isActive: false,
           totalTeams: 42,
-          activeTeams: 32,
-          completedTeams: 8,
-          startTime: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
-          timeRemaining: 900 // 15 minutes
+          activeTeams: 0,
+          completedTeams: 42,
+          startTime: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+          endTime: new Date(Date.now() - 1800000).toISOString(), // 30 min ago
         },
         {
           roundId: 'round2',
           roundName: 'Voting Round',
-          isActive: false,
-          totalTeams: 0,
-          activeTeams: 0,
-          completedTeams: 0
+          isActive: votingStatus === 'active',
+          totalTeams: 42,
+          activeTeams: votingStatus === 'active' ? 35 : 0,
+          completedTeams: votingStatus === 'completed' ? 42 : 0,
+          ...(votingStatus === 'active' && {
+            startTime: new Date(Date.now() - 300000).toISOString(), // 5 min ago
+            timeRemaining: 600 // 10 minutes
+          })
         },
         {
           roundId: 'round3',
@@ -243,6 +252,59 @@ export default function RealTimeMonitoringPage() {
     if (percentage < 50) return 'text-green-600';
     if (percentage < 75) return 'text-yellow-600';
     return 'text-red-600';
+  };
+
+  const startVoting = async () => {
+    try {
+      setStartingVoting(true);
+      setError('');
+      
+      const response = await fetch('/api/voting?action=control', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'start_voting'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setVotingStatus('active');
+        // Optionally refresh the data to show updated status
+        fetchData();
+      } else {
+        setError(data.error || 'Failed to start voting');
+      }
+    } catch (error) {
+      console.error('Error starting voting:', error);
+      setError('Failed to start voting session');
+    } finally {
+      setStartingVoting(false);
+    }
+  };
+
+  const fetchVotingStatus = async () => {
+    try {
+      const response = await fetch('/api/voting?action=status');
+      const data = await response.json();
+      
+      if (data.success && data.session) {
+        // Update voting status based on session phase
+        if (data.session.phase === 'voting' || data.session.phase === 'pitching') {
+          setVotingStatus('active');
+        } else if (data.session.phase === 'completed') {
+          setVotingStatus('completed');
+        } else {
+          setVotingStatus('waiting');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching voting status:', error);
+      // Don't set error for this background fetch
+    }
   };
 
   if (contextLoading || loading) {
@@ -400,7 +462,48 @@ export default function RealTimeMonitoringPage() {
         {/* Round Status */}
         <SimpleCard className="mb-8">
           <SimpleCardHeader>
-            <SimpleCardTitle>Round Status</SimpleCardTitle>
+            <div className="flex justify-between items-center">
+              <SimpleCardTitle>Round Status</SimpleCardTitle>
+              <div className="flex space-x-2">
+                {votingStatus === 'waiting' && (
+                  <SimpleButton
+                    onClick={startVoting}
+                    disabled={startingVoting}
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Vote className="h-4 w-4 mr-2" />
+                    {startingVoting ? 'Starting...' : 'Start Voting'}
+                  </SimpleButton>
+                )}
+                {votingStatus === 'active' && (
+                  <div className="flex items-center space-x-2">
+                    <div className="flex items-center text-green-600">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                      <span className="text-sm font-medium">Voting Active</span>
+                    </div>
+                    <SimpleButton
+                      onClick={() => {
+                        // Add end voting functionality if needed
+                        setVotingStatus('completed');
+                      }}
+                      size="sm"
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      <Square className="h-4 w-4 mr-1" />
+                      End Voting
+                    </SimpleButton>
+                  </div>
+                )}
+                {votingStatus === 'completed' && (
+                  <div className="flex items-center text-blue-600">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    <span className="text-sm font-medium">Voting Completed</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </SimpleCardHeader>
           <SimpleCardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
