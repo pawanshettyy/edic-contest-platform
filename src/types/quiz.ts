@@ -3,15 +3,20 @@ export interface QuizQuestion {
   roundId: string;
   question: string;
   type: QuestionType;
-  options: string[];
-  correctAnswer: number | string;
+  options: QuizQuestionOption[];
   explanation?: string;
-  points: number;
   timeLimit: number; // in seconds
   difficulty: QuestionDifficulty;
   tags: string[];
   orderIndex: number;
   createdAt: Date;
+}
+
+export interface QuizQuestionOption {
+  id: string;
+  text: string;
+  points: number; // Can be +4, -2, 0, etc.
+  isCorrect?: boolean; // Optional for admin reference
 }
 
 export interface QuizAttempt {
@@ -31,9 +36,8 @@ export interface QuizAttempt {
 
 export interface QuizAnswer {
   questionId: string;
-  selectedAnswer: number | string;
-  isCorrect: boolean;
-  points: number;
+  selectedOptionId: string;
+  points: number; // Points earned from this answer
   timeSpent: number; // in seconds
   answeredAt: Date;
 }

@@ -12,9 +12,10 @@ export function getStoredUser(): User | null {
   
   try {
     const storedUser = localStorage.getItem(AUTH_STORAGE_KEYS.USER);
-    return storedUser ? JSON.parse(storedUser) : null;
+    return storedUser && storedUser.trim() !== '' ? JSON.parse(storedUser) : null;
   } catch (error) {
     console.error('Error getting stored user:', error);
+    localStorage.removeItem(AUTH_STORAGE_KEYS.USER);
     return null;
   }
 }
@@ -24,9 +25,10 @@ export function getStoredTeam(): Team | null {
   
   try {
     const storedTeam = localStorage.getItem(AUTH_STORAGE_KEYS.TEAM);
-    return storedTeam ? JSON.parse(storedTeam) : null;
+    return storedTeam && storedTeam.trim() !== '' ? JSON.parse(storedTeam) : null;
   } catch (error) {
     console.error('Error getting stored team:', error);
+    localStorage.removeItem(AUTH_STORAGE_KEYS.TEAM);
     return null;
   }
 }
@@ -36,9 +38,10 @@ export function getStoredTeams(): Team[] {
   
   try {
     const storedTeams = localStorage.getItem(AUTH_STORAGE_KEYS.TEAMS);
-    return storedTeams ? JSON.parse(storedTeams) : [];
+    return storedTeams && storedTeams.trim() !== '' ? JSON.parse(storedTeams) : [];
   } catch (error) {
     console.error('Error getting stored teams:', error);
+    localStorage.removeItem(AUTH_STORAGE_KEYS.TEAMS);
     return [];
   }
 }

@@ -34,18 +34,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const storedUser = localStorage.getItem('axios_user');
         const storedTeam = localStorage.getItem('axios_team');
         
-        if (storedUser && storedTeam) {
-          setAuthState({
-            user: JSON.parse(storedUser),
-            team: JSON.parse(storedTeam),
-            isAuthenticated: true,
-            isLoading: false,
-          });
+        if (storedUser && storedTeam && storedUser.trim() !== '' && storedTeam.trim() !== '') {
+          const parsedUser = JSON.parse(storedUser);
+          const parsedTeam = JSON.parse(storedTeam);
+          
+          if (parsedUser && parsedTeam) {
+            setAuthState({
+              user: parsedUser,
+              team: parsedTeam,
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          } else {
+            setAuthState(prev => ({ ...prev, isLoading: false }));
+          }
         } else {
           setAuthState(prev => ({ ...prev, isLoading: false }));
         }
       } catch (error) {
         console.error('Error loading auth state:', error);
+        // Clear potentially corrupted localStorage data
+        localStorage.removeItem('axios_user');
+        localStorage.removeItem('axios_team');
+        localStorage.removeItem('axios_teams');
         setAuthState(prev => ({ ...prev, isLoading: false }));
       }
     };
@@ -117,7 +128,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Get teams from localStorage
       const teamsData = localStorage.getItem('axios_teams');
-      const teams: Team[] = teamsData ? JSON.parse(teamsData) : [];
+      const teams: Team[] = teamsData && teamsData.trim() !== '' ? JSON.parse(teamsData) : [];
       
       // Find the team
       const team = teams.find(t => t.name.toLowerCase() === data.teamName.toLowerCase());
