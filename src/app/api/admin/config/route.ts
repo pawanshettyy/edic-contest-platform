@@ -43,6 +43,14 @@ async function verifyAdminSession(token: string) {
     throw new Error('Invalid session type');
   }
   
+  // If no supabase client, allow fallback admin
+  if (!supabase) {
+    if (decoded.adminId === 'fallback-admin-id') {
+      return decoded;
+    }
+    throw new Error('Database not configured');
+  }
+  
   const { data: sessions, error } = await supabase
     .from('admin_sessions')
     .select('*')
@@ -66,6 +74,29 @@ export async function GET(request: NextRequest) {
     }
     
     await verifyAdminSession(token);
+    
+    // If no supabase client, return mock config for development
+    if (!supabase) {
+      return NextResponse.json({
+        config: {
+          id: 'mock-config',
+          contest_name: 'EDIC Business Challenge',
+          contest_description: 'Innovation Challenge for emerging entrepreneurs',
+          start_date: new Date().toISOString(),
+          end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          max_teams: 50,
+          team_size: 5,
+          registration_open: true,
+          contest_active: false,
+          current_round: 1
+        },
+        rounds: [
+          { id: '1', round_number: 1, title: 'Quiz Round', description: 'MCQ Quiz', is_active: false },
+          { id: '2', round_number: 2, title: 'Voting Round', description: 'Team Voting', is_active: false },
+          { id: '3', round_number: 3, title: 'Final Round', description: 'Final Presentations', is_active: false }
+        ]
+      });
+    }
     
     // Get contest configuration
     const { data: config, error: configError } = await supabase
@@ -115,6 +146,14 @@ export async function POST(request: NextRequest) {
     
     const admin = await verifyAdminSession(token);
     const body = await request.json();
+    
+    // If no supabase client, return success for development mode
+    if (!supabase) {
+      return NextResponse.json({ 
+        message: 'Configuration updated (development mode)',
+        config: body
+      });
+    }
     
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'update_config';

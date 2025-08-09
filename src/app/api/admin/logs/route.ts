@@ -19,6 +19,14 @@ async function verifyAdminSession(token: string) {
     throw new Error('Invalid session type');
   }
   
+  // If no supabase client, allow fallback admin
+  if (!supabase) {
+    if (decoded.adminId === 'fallback-admin-id') {
+      return decoded;
+    }
+    throw new Error('Database not configured');
+  }
+  
   const { data: sessions, error } = await supabase
     .from('admin_sessions')
     .select('*')
@@ -49,6 +57,28 @@ export async function GET(request: NextRequest) {
     const action = url.searchParams.get('action');
     const targetType = url.searchParams.get('target_type');
     const adminId = url.searchParams.get('admin_id');
+    
+    // If no supabase client, return mock logs for development
+    if (!supabase) {
+      return NextResponse.json({
+        logs: [
+          {
+            id: '1',
+            action: 'admin_login',
+            target_type: 'auth',
+            target_id: null,
+            details: { message: 'Development mode - database not connected' },
+            timestamp: new Date().toISOString(),
+            ip_address: '127.0.0.1',
+            admin_users: { username: 'admin' }
+          }
+        ],
+        totalCount: 1,
+        page,
+        totalPages: 1,
+        hasNextPage: false
+      });
+    }
     
     const offset = (page - 1) * limit;
     

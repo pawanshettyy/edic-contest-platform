@@ -60,7 +60,25 @@ export async function GET(request: NextRequest) {
     }
     
     try {
-      // Check if session exists in database
+      // Check if session exists in database - only if supabase is configured
+      if (!supabase) {
+        // If no supabase, fallback to simple token validation for development
+        if (decoded.adminId === 'fallback-admin-id') {
+          return NextResponse.json({
+            admin: {
+              id: 'fallback-admin-id',
+              username: 'admin',
+              email: 'admin@techpreneur.com',
+              role: 'super_admin',
+              permissions: { all: true },
+              lastLogin: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+            }
+          });
+        }
+        throw new Error('Database not configured');
+      }
+      
       const { data: sessions, error: sessionError } = await supabase
         .from('admin_sessions')
         .select('*')
