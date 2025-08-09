@@ -96,8 +96,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const data: QuizQuestion = await request.json();
 
     // Check if maximum questions limit is reached
-    const countResult = await query('SELECT COUNT(*) as count FROM quiz_questions');
-    const questionCount = parseInt((countResult as any).rows[0].count);
+    const countResult = await query('SELECT COUNT(*) as count FROM quiz_questions') as unknown as { rows: { count: string }[] };
+    const questionCount = parseInt(countResult.rows[0].count);
     
     if (questionCount >= 15) {
       return NextResponse.json(

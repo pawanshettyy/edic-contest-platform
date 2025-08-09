@@ -470,6 +470,55 @@ edic-contest-platform/
 └── docs/                      # Additional documentation
 ```
 
+## 🚀 Production Deployment
+
+### Quick Deploy to Vercel
+
+1. **Prepare Database**:
+   - Create PostgreSQL database (Neon, Supabase, or your own)
+   - Run schema: Copy `database/optimized-schema.sql` to your database
+
+2. **Deploy to Vercel**:
+   ```bash
+   # Install Vercel CLI
+   npm install -g vercel
+   
+   # Login and deploy
+   vercel login
+   vercel
+   ```
+
+3. **Set Environment Variables** in Vercel Dashboard:
+   ```
+   DATABASE_URL=postgresql://user:pass@host:5432/db
+   JWT_SECRET=your-secure-32-character-secret
+   NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+   NODE_ENV=production
+   ```
+
+4. **Verify Deployment**:
+   - Visit `/admin/login`
+   - Login with: admin / admin123
+   - **Change password immediately!**
+
+### Detailed Deployment Guide
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for comprehensive deployment instructions including:
+- Database setup options (Neon, Supabase, custom PostgreSQL)
+- Environment variable configuration
+- Domain setup and SSL
+- Performance optimization
+- Security best practices
+- Troubleshooting guide
+
+### Pre-deployment Check
+```bash
+# Run deployment verification
+node scripts/deploy-check.js
+
+# Build test
+npm run build
+```
+
 ## 🏆 Production Checklist
 
 ### ✅ Completed
