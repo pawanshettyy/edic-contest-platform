@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAdmin } from '@/context/AdminContext';
 import { SimpleCard, SimpleCardContent, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
 import { SimpleButton } from '@/components/ui/simple-button';
@@ -22,9 +22,7 @@ import {
   Pause,
   RotateCcw,
   Plus,
-  Edit3,
   Trash2,
-  HelpCircle,
   BookOpen
 } from 'lucide-react';
 import Link from 'next/link';
@@ -43,22 +41,21 @@ interface ContestRound {
 }
 
 interface QuizOption {
-  id: string;
-  text: string;
-  points: number; // can be negative
-  isCorrect: boolean;
+  id?: string;
+  option_text: string;
+  points: number;
+  is_correct: boolean;
+  option_order: number;
+  category: string; // Category for this specific option
 }
 
 interface QuizQuestion {
-  id: string;
+  id?: string;
   question: string;
-  type: 'mcq' | 'multiple-select' | 'true-false';
-  options: QuizOption[];
-  timeLimit: number; // seconds, 0 for no limit
-  difficulty: 'easy' | 'medium' | 'hard';
-  category: string;
+  question_type: string;
   explanation?: string;
-  isActive: boolean;
+  is_active: boolean;
+  options: QuizOption[];
 }
 
 interface ContestConfig {
@@ -107,11 +104,10 @@ export default function ContestConfigurationPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('general');
-  const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
-  const [showQuestionModal, setShowQuestionModal] = useState(false);
 
   const { admin, loading: contextLoading } = useAdmin();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     if (!contextLoading && !admin) {
@@ -124,6 +120,14 @@ export default function ContestConfigurationPage() {
       fetchContestConfig();
     }
   }, [admin]);
+
+  // Handle tab parameter from URL
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['general', 'quiz', 'voting', 'questions', 'rounds'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const fetchContestConfig = async () => {
     try {
@@ -198,49 +202,40 @@ export default function ContestConfigurationPage() {
           {
             id: 'q1',
             question: 'What is the primary goal of entrepreneurship?',
-            type: 'mcq',
+            question_type: 'mcq',
             options: [
-              { id: 'q1_a', text: 'To make maximum profit', points: 5, isCorrect: false },
-              { id: 'q1_b', text: 'To create value and solve problems', points: 10, isCorrect: true },
-              { id: 'q1_c', text: 'To become famous', points: -2, isCorrect: false },
-              { id: 'q1_d', text: 'To work independently', points: 3, isCorrect: false }
+              { id: 'q1_a', option_text: 'To make maximum profit', points: 5, is_correct: false, option_order: 1, category: 'Finance' },
+              { id: 'q1_b', option_text: 'To create value and solve problems', points: 10, is_correct: true, option_order: 2, category: 'Innovation' },
+              { id: 'q1_c', option_text: 'To become famous', points: -2, is_correct: false, option_order: 3, category: 'Personal' },
+              { id: 'q1_d', option_text: 'To work independently', points: 3, is_correct: false, option_order: 4, category: 'Leadership' }
             ],
-            timeLimit: 45,
-            difficulty: 'easy',
-            category: 'Entrepreneurship Basics',
             explanation: 'Entrepreneurship is fundamentally about creating value and solving real-world problems.',
-            isActive: true
+            is_active: true
           },
           {
             id: 'q2',
             question: 'Which of the following are key components of a business model canvas?',
-            type: 'multiple-select',
+            question_type: 'multiple-select',
             options: [
-              { id: 'q2_a', text: 'Value Propositions', points: 8, isCorrect: true },
-              { id: 'q2_b', text: 'Customer Segments', points: 8, isCorrect: true },
-              { id: 'q2_c', text: 'Personal Hobbies', points: -5, isCorrect: false },
-              { id: 'q2_d', text: 'Revenue Streams', points: 8, isCorrect: true },
-              { id: 'q2_e', text: 'Key Partnerships', points: 8, isCorrect: true }
+              { id: 'q2_a', option_text: 'Value Propositions', points: 8, is_correct: true, option_order: 1, category: 'Strategy' },
+              { id: 'q2_b', option_text: 'Customer Segments', points: 8, is_correct: true, option_order: 2, category: 'Marketing' },
+              { id: 'q2_c', option_text: 'Personal Hobbies', points: -5, is_correct: false, option_order: 3, category: 'Personal' },
+              { id: 'q2_d', option_text: 'Revenue Streams', points: 8, is_correct: true, option_order: 4, category: 'Finance' },
+              { id: 'q2_e', option_text: 'Key Partnerships', points: 8, is_correct: true, option_order: 5, category: 'Operations' }
             ],
-            timeLimit: 60,
-            difficulty: 'medium',
-            category: 'Business Planning',
             explanation: 'The Business Model Canvas includes 9 key building blocks including Value Propositions, Customer Segments, Revenue Streams, and Key Partnerships.',
-            isActive: true
+            is_active: true
           },
           {
             id: 'q3',
             question: 'Lean startup methodology emphasizes building a minimum viable product (MVP) first.',
-            type: 'true-false',
+            question_type: 'true-false',
             options: [
-              { id: 'q3_a', text: 'True', points: 10, isCorrect: true },
-              { id: 'q3_b', text: 'False', points: -3, isCorrect: false }
+              { id: 'q3_a', option_text: 'True', points: 10, is_correct: true, option_order: 1, category: 'Innovation' },
+              { id: 'q3_b', option_text: 'False', points: -3, is_correct: false, option_order: 2, category: 'Traditional' }
             ],
-            timeLimit: 30,
-            difficulty: 'easy',
-            category: 'Startup Methodology',
             explanation: 'The Lean Startup methodology advocates for building an MVP to test hypotheses quickly and cost-effectively.',
-            isActive: true
+            is_active: true
           }
         ]
       };
@@ -319,79 +314,6 @@ export default function ContestConfigurationPage() {
         round.id === roundId ? { ...round, [field]: value } : round
       )
     });
-  };
-
-  const createNewQuestion = () => {
-    const newQuestion: QuizQuestion = {
-      id: `q${Date.now()}`,
-      question: '',
-      type: 'mcq',
-      options: [
-        { id: `opt${Date.now()}_1`, text: '', points: 10, isCorrect: true },
-        { id: `opt${Date.now()}_2`, text: '', points: -2, isCorrect: false },
-        { id: `opt${Date.now()}_3`, text: '', points: -2, isCorrect: false },
-        { id: `opt${Date.now()}_4`, text: '', points: -2, isCorrect: false }
-      ],
-      timeLimit: 45,
-      difficulty: 'medium',
-      category: 'General',
-      explanation: '',
-      isActive: true
-    };
-    setEditingQuestion(newQuestion);
-    setShowQuestionModal(true);
-  };
-
-  const saveQuestion = () => {
-    if (!config || !editingQuestion) return;
-    
-    const updatedQuestions = editingQuestion.id.startsWith('q' + Date.now()) 
-      ? [...config.questions, editingQuestion]
-      : config.questions.map(q => q.id === editingQuestion.id ? editingQuestion : q);
-    
-    setConfig({ ...config, questions: updatedQuestions });
-    setShowQuestionModal(false);
-    setEditingQuestion(null);
-    setSuccess('Question saved successfully!');
-    setTimeout(() => setSuccess(''), 2000);
-  };
-
-  const deleteQuestion = (questionId: string) => {
-    if (!config) return;
-    setConfig({
-      ...config,
-      questions: config.questions.filter(q => q.id !== questionId)
-    });
-    setSuccess('Question deleted successfully!');
-    setTimeout(() => setSuccess(''), 2000);
-  };
-
-  const updateQuestionOption = (optionIndex: number, field: keyof QuizOption, value: string | number | boolean) => {
-    if (!editingQuestion) return;
-    const updatedOptions = editingQuestion.options.map((option, index) => 
-      index === optionIndex ? { ...option, [field]: value } : option
-    );
-    setEditingQuestion({ ...editingQuestion, options: updatedOptions });
-  };
-
-  const addQuestionOption = () => {
-    if (!editingQuestion) return;
-    const newOption: QuizOption = {
-      id: `opt${Date.now()}_${editingQuestion.options.length + 1}`,
-      text: '',
-      points: -2,
-      isCorrect: false
-    };
-    setEditingQuestion({
-      ...editingQuestion,
-      options: [...editingQuestion.options, newOption]
-    });
-  };
-
-  const removeQuestionOption = (optionIndex: number) => {
-    if (!editingQuestion || editingQuestion.options.length <= 2) return;
-    const updatedOptions = editingQuestion.options.filter((_, index) => index !== optionIndex);
-    setEditingQuestion({ ...editingQuestion, options: updatedOptions });
   };
 
   if (contextLoading || loading) {
@@ -754,113 +676,7 @@ export default function ContestConfigurationPage() {
 
           {/* Questions Bank */}
           {activeTab === 'questions' && (
-            <div className="space-y-6">
-              <SimpleCard>
-                <SimpleCardHeader>
-                  <div className="flex justify-between items-center">
-                    <SimpleCardTitle>Questions Bank</SimpleCardTitle>
-                    <SimpleButton
-                      onClick={createNewQuestion}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Question
-                    </SimpleButton>
-                  </div>
-                </SimpleCardHeader>
-                <SimpleCardContent>
-                  <div className="space-y-4">
-                    {config.questions.map((question, index) => (
-                      <div key={question.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                              Q{index + 1}: {question.question || 'Untitled Question'}
-                            </h4>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                              <span className="capitalize">{question.type.replace('-', ' ')}</span>
-                              <span className="capitalize">{question.difficulty}</span>
-                              <span>{question.category}</span>
-                              <span>{question.timeLimit}s</span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                question.isActive 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                              }`}>
-                                {question.isActive ? 'Active' : 'Inactive'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <SimpleButton
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingQuestion(question);
-                                setShowQuestionModal(true);
-                              }}
-                            >
-                              <Edit3 className="h-3 w-3 mr-1" />
-                              Edit
-                            </SimpleButton>
-                            <SimpleButton
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => deleteQuestion(question.id)}
-                            >
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Delete
-                            </SimpleButton>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">
-                            <strong>Options ({question.options.length}):</strong>
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {question.options.map((option, optIndex) => (
-                              <div key={option.id} className={`p-2 rounded text-sm border ${
-                                option.isCorrect 
-                                  ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                                  : option.points < 0
-                                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
-                                  : 'border-gray-300 dark:border-gray-600'
-                              }`}>
-                                <span className="font-medium">
-                                  {String.fromCharCode(65 + optIndex)}.
-                                </span> {option.text || 'Empty option'}
-                                <span className={`ml-2 px-1 py-0.5 text-xs rounded ${
-                                  option.points > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {option.points > 0 ? '+' : ''}{option.points} pts
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {question.explanation && (
-                          <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                            <p className="text-sm text-blue-800 dark:text-blue-200">
-                              <HelpCircle className="h-3 w-3 inline mr-1" />
-                              {question.explanation}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {config.questions.length === 0 && (
-                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>No questions added yet. Click &quot;Add Question&quot; to get started.</p>
-                      </div>
-                    )}
-                  </div>
-                </SimpleCardContent>
-              </SimpleCard>
-            </div>
+            <QuestionBankTab />
           )}
 
           {/* Rounds Management */}
@@ -977,97 +793,301 @@ export default function ContestConfigurationPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
 
-      {/* Question Modal */}
-      {showQuestionModal && editingQuestion && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {editingQuestion.id.startsWith('q' + Date.now()) ? 'Add New Question' : 'Edit Question'}
-                </h2>
-                <SimpleButton
-                  onClick={() => {
-                    setShowQuestionModal(false);
-                    setEditingQuestion(null);
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  Cancel
-                </SimpleButton>
-              </div>
+// Question Bank Tab Component
+function QuestionBankTab() {
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<QuizQuestion | null>(null);
+
+  const [formData, setFormData] = useState<QuizQuestion>({
+    question: '',
+    question_type: 'mcq',
+    explanation: '',
+    is_active: true,
+    options: [
+      { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'General' },
+      { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'General' },
+      { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'General' },
+      { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'General' }
+    ]
+  });
+
+  const categories = [
+    'General', 'Business Strategy', 'Marketing', 'Finance', 'Technology', 
+    'Leadership', 'Innovation', 'Entrepreneurship', 'Operations'
+  ];
+  const questionTypes = [
+    { value: 'mcq', label: 'Multiple Choice (Single Answer)' },
+    { value: 'multiple-select', label: 'Multiple Choice (Multiple Answers)' },
+    { value: 'true-false', label: 'True/False' }
+  ];
+
+  useEffect(() => {
+    loadQuestions();
+  }, []);
+
+  const loadQuestions = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/admin/questions');
+      if (!response.ok) throw new Error('Failed to load questions');
+      
+      const data = await response.json();
+      setQuestions(data.questions || []);
+    } catch (err) {
+      setError(`Failed to load questions: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      question: '',
+      question_type: 'mcq',
+      explanation: '',
+      is_active: true,
+      options: [
+        { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'General' },
+        { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'General' },
+        { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'General' },
+        { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'General' }
+      ]
+    });
+    setEditingQuestion(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (question: QuizQuestion) => {
+    setFormData({ ...question });
+    setEditingQuestion(question);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      // Validate form
+      if (!formData.question.trim()) {
+        setError('Question is required');
+        return;
+      }
+
+      const hasCorrectAnswer = formData.options.some(opt => opt.is_correct && opt.option_text.trim());
+      if (!hasCorrectAnswer) {
+        setError('At least one option must be marked as correct and have text');
+        return;
+      }
+
+      const method = editingQuestion ? 'PUT' : 'POST';
+      const url = editingQuestion 
+        ? `/api/admin/questions?id=${editingQuestion.id}`
+        : '/api/admin/questions';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save question');
+      }
+
+      setSuccess(editingQuestion ? 'Question updated successfully!' : 'Question added successfully!');
+      resetForm();
+      loadQuestions();
+    } catch (err) {
+      setError(`Failed to save question: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleDelete = async (questionId: string) => {
+    if (!confirm('Are you sure you want to delete this question?')) return;
+
+    try {
+      const response = await fetch(`/api/admin/questions?id=${questionId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) throw new Error('Failed to delete question');
+
+      setSuccess('Question deleted successfully!');
+      loadQuestions();
+    } catch (err) {
+      setError(`Failed to delete question: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const toggleQuestionStatus = async (questionId: string, currentStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/questions?id=${questionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
+
+      if (!response.ok) throw new Error('Failed to update question status');
+
+      setSuccess(`Question ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+      loadQuestions();
+    } catch (err) {
+      setError(`Failed to update question status: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const updateOption = (index: number, field: keyof QuizOption, value: string | number | boolean) => {
+    const newOptions = [...formData.options];
+    newOptions[index] = { ...newOptions[index], [field]: value };
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  const addOption = () => {
+    const newOptions = [...formData.options];
+    newOptions.push({
+      option_text: '',
+      points: 0,
+      is_correct: false,
+      option_order: newOptions.length + 1,
+      category: 'General'
+    });
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  const removeOption = (index: number) => {
+    if (formData.options.length <= 2) {
+      setError('At least 2 options are required');
+      return;
+    }
+    
+    const newOptions = formData.options.filter((_, i) => i !== index);
+    // Reorder remaining options
+    newOptions.forEach((option, i) => {
+      option.option_order = i + 1;
+    });
+    setFormData({ ...formData, options: newOptions });
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-8">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">Loading questions...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <SimpleAlert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <div className="flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={() => setError('')} className="text-red-600 hover:text-red-800">&times;</button>
+          </div>
+        </SimpleAlert>
+      )}
+      {success && (
+        <SimpleAlert className="mb-4 border-green-500/50 text-green-600 bg-green-50">
+          <CheckCircle className="h-4 w-4" />
+          <div className="flex justify-between items-center">
+            <span>{success}</span>
+            <button onClick={() => setSuccess('')} className="text-green-600 hover:text-green-800">&times;</button>
+          </div>
+        </SimpleAlert>
+      )}
+
+      <SimpleCard>
+        <SimpleCardHeader>
+          <div className="flex justify-between items-center">
+            <div className="flex flex-col">
+              <SimpleCardTitle>Question Bank Management</SimpleCardTitle>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {questions.length}/15 questions added (Each question = 1 minute)
+              </p>
+            </div>
+            <SimpleButton
+              onClick={() => setShowForm(!showForm)}
+              className="bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
+              disabled={questions.length >= 15 && !showForm}
+            >
+              {showForm ? 'Cancel' : questions.length >= 15 ? 'Maximum Questions Reached' : 'Add New Question'}
+            </SimpleButton>
+          </div>
+        </SimpleCardHeader>
+        <SimpleCardContent>
+          {showForm && (
+            <div className="mb-6 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">
+                {editingQuestion ? 'Edit Question' : 'Add New Question'}
+              </h3>
               
-              <div className="space-y-6">
-                {/* Question Details */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-1">Question *</Label>
+                  <textarea
+                    value={formData.question}
+                    onChange={(e) => setFormData({ ...formData, question: e.target.value })}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 h-24 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    placeholder="Enter your question here..."
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="questionText">Question Text</Label>
-                    <Input
-                      id="questionText"
-                      value={editingQuestion.question}
-                      onChange={(e) => setEditingQuestion({ ...editingQuestion, question: e.target.value })}
-                      placeholder="Enter your question here..."
-                    />
-                  </div>
-                  
                   <div>
-                    <Label htmlFor="questionType">Question Type</Label>
+                    <Label className="block text-sm font-medium mb-1">Question Type</Label>
                     <select
-                      id="questionType"
-                      value={editingQuestion.type}
-                      onChange={(e) => setEditingQuestion({ ...editingQuestion, type: e.target.value as 'mcq' | 'multiple-select' | 'true-false' })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      value={formData.question_type}
+                      onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     >
-                      <option value="mcq">Multiple Choice (Single Answer)</option>
-                      <option value="multiple-select">Multiple Choice (Multiple Answers)</option>
-                      <option value="true-false">True/False</option>
+                      {questionTypes.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
                     </select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="difficulty">Difficulty</Label>
-                    <select
-                      id="difficulty"
-                      value={editingQuestion.difficulty}
-                      onChange={(e) => setEditingQuestion({ ...editingQuestion, difficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={editingQuestion.category}
-                      onChange={(e) => setEditingQuestion({ ...editingQuestion, category: e.target.value })}
-                      placeholder="e.g., Entrepreneurship, Business Planning"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="timeLimit">Time Limit (seconds)</Label>
-                    <Input
-                      id="timeLimit"
-                      type="number"
-                      value={editingQuestion.timeLimit}
-                      onChange={(e) => setEditingQuestion({ ...editingQuestion, timeLimit: parseInt(e.target.value) || 0 })}
-                      min="0"
-                    />
                   </div>
                 </div>
 
-                {/* Options */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="is_active"
+                      checked={formData.is_active}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <Label htmlFor="is_active" className="text-sm font-medium">Active in Quiz</Label>
+                  </div>
+                </div>
+
                 <div>
-                  <div className="flex justify-between items-center mb-4">
-                    <Label>Answer Options</Label>
+                  <Label className="block text-sm font-medium mb-1">Explanation</Label>
+                  <textarea
+                    value={formData.explanation}
+                    onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 h-20 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    placeholder="Explanation for the correct answer (optional)..."
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <Label className="block text-sm font-medium">Answer Options *</Label>
                     <SimpleButton
-                      onClick={addQuestionOption}
+                      type="button"
+                      onClick={addOption}
                       size="sm"
                       variant="outline"
                     >
@@ -1076,126 +1096,153 @@ export default function ContestConfigurationPage() {
                     </SimpleButton>
                   </div>
                   
-                  <div className="space-y-3">
-                    {editingQuestion.options.map((option, index) => (
-                      <div key={option.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-medium text-gray-900 dark:text-white">
-                            Option {String.fromCharCode(65 + index)}
-                          </h4>
-                          {editingQuestion.options.length > 2 && (
-                            <SimpleButton
-                              onClick={() => removeQuestionOption(index)}
-                              size="sm"
-                              variant="destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </SimpleButton>
-                          )}
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                          <div className="md:col-span-6">
-                            <Label>Option Text</Label>
-                            <Input
-                              value={option.text}
-                              onChange={(e) => updateQuestionOption(index, 'text', e.target.value)}
-                              placeholder="Enter option text..."
-                            />
-                          </div>
-                          
-                          <div className="md:col-span-2">
-                            <Label>Points</Label>
-                            <Input
-                              type="number"
-                              value={option.points}
-                              onChange={(e) => updateQuestionOption(index, 'points', parseInt(e.target.value) || 0)}
-                              placeholder="Points"
-                            />
-                          </div>
-                          
-                          <div className="md:col-span-2">
-                            <Label>Correct Answer</Label>
-                            <div className="mt-2">
-                              <input
-                                type={editingQuestion.type === 'multiple-select' ? 'checkbox' : 'radio'}
-                                name="correctAnswer"
-                                checked={option.isCorrect}
-                                onChange={(e) => {
-                                  if (editingQuestion.type === 'multiple-select') {
-                                    updateQuestionOption(index, 'isCorrect', e.target.checked);
-                                  } else {
-                                    // For single-select, uncheck all others
-                                    editingQuestion.options.forEach((_, optIndex) => {
-                                      updateQuestionOption(optIndex, 'isCorrect', optIndex === index);
-                                    });
-                                  }
-                                }}
-                                className="rounded border-gray-300 dark:border-gray-600"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="md:col-span-2">
-                            <div className={`mt-7 px-2 py-1 text-xs rounded text-center ${
-                              option.points > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {option.points > 0 ? '+' : ''}{option.points} pts
-                            </div>
-                          </div>
-                        </div>
+                  {formData.options.map((option, index) => (
+                    <div key={index} className="flex gap-2 mb-2 p-2 border border-gray-200 dark:border-gray-700 rounded">
+                      <div className="flex-1">
+                        <Input
+                          type="text"
+                          value={option.option_text}
+                          onChange={(e) => updateOption(index, 'option_text', e.target.value)}
+                          placeholder={`Option ${index + 1}`}
+                          required
+                        />
                       </div>
-                    ))}
-                  </div>
+                      <div className="w-20">
+                        <Input
+                          type="number"
+                          value={option.points}
+                          onChange={(e) => updateOption(index, 'points', parseInt(e.target.value) || 0)}
+                          placeholder="Points"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <select
+                          value={option.category}
+                          onChange={(e) => updateOption(index, 'category', e.target.value)}
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        >
+                          {categories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={option.is_correct}
+                          onChange={(e) => updateOption(index, 'is_correct', e.target.checked)}
+                          className="mr-1"
+                        />
+                        <span className="text-xs">Correct</span>
+                      </div>
+                      {formData.options.length > 2 && (
+                        <SimpleButton
+                          type="button"
+                          onClick={() => removeOption(index)}
+                          size="sm"
+                          variant="destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </SimpleButton>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
-                {/* Explanation */}
-                <div>
-                  <Label htmlFor="explanation">Explanation (Optional)</Label>
-                  <Input
-                    id="explanation"
-                    value={editingQuestion.explanation || ''}
-                    onChange={(e) => setEditingQuestion({ ...editingQuestion, explanation: e.target.value })}
-                    placeholder="Provide an explanation for the correct answer..."
-                  />
-                </div>
-
-                {/* Active Status */}
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={editingQuestion.isActive}
-                    onChange={(e) => setEditingQuestion({ ...editingQuestion, isActive: e.target.checked })}
-                    className="rounded border-gray-300 dark:border-gray-600"
-                  />
-                  <Label htmlFor="isActive">Question is active and can be used in quizzes</Label>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <SimpleButton
-                    onClick={() => {
-                      setShowQuestionModal(false);
-                      setEditingQuestion(null);
-                    }}
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                    disabled={!formData.question.trim() || !formData.options.some(opt => opt.is_correct && opt.option_text.trim())}
+                  >
+                    {editingQuestion ? 'Update Question' : 'Add Question'}
+                  </SimpleButton>
+                  <SimpleButton
+                    type="button"
+                    onClick={resetForm}
                     variant="outline"
                   >
                     Cancel
                   </SimpleButton>
-                  <SimpleButton
-                    onClick={saveQuestion}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={!editingQuestion.question.trim() || editingQuestion.options.some(opt => !opt.text.trim())}
-                  >
-                    Save Question
-                  </SimpleButton>
                 </div>
-              </div>
+              </form>
             </div>
+          )}
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Questions ({questions.length})</h3>
+            
+            {questions.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No questions found. Add your first question!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {questions.map((question) => (
+                  <div key={question.id} className="border border-gray-200 dark:border-gray-700 rounded p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-lg text-gray-900 dark:text-white">{question.question}</h4>
+                        <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          <span>Type: {question.question_type}</span>
+                          <span className={question.is_active ? 'text-green-600' : 'text-red-600'}>
+                            {question.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <SimpleButton
+                          onClick={() => handleEdit(question)}
+                          size="sm"
+                          variant="outline"
+                        >
+                          Edit
+                        </SimpleButton>
+                        <SimpleButton
+                          onClick={() => toggleQuestionStatus(question.id!, question.is_active)}
+                          size="sm"
+                          className={question.is_active ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}
+                        >
+                          {question.is_active ? 'Deactivate' : 'Activate'}
+                        </SimpleButton>
+                        <SimpleButton
+                          onClick={() => handleDelete(question.id!)}
+                          size="sm"
+                          variant="destructive"
+                        >
+                          Delete
+                        </SimpleButton>
+                      </div>
+                    </div>
+                    
+                    <div className="ml-4 space-y-1">
+                      {question.options.map((option, index) => (
+                        <div key={index} className="flex items-center text-sm">
+                          <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                            option.is_correct ? 'bg-green-500' : 'bg-gray-300'
+                          }`}></span>
+                          <span className="flex-1">{option.option_text}</span>
+                          <span className="text-blue-600 dark:text-blue-400 ml-2 text-xs px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded">
+                            {option.category}
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400 ml-2">({option.points} pts)</span>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {question.explanation && (
+                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
+                        <strong>Explanation:</strong> {question.explanation}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        </SimpleCardContent>
+      </SimpleCard>
     </div>
   );
 }

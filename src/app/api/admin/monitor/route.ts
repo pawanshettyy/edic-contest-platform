@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { query, transaction } from '@/lib/database';
+import { query, transaction, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -60,17 +60,53 @@ async function verifyAdminSession(token: string) {
     );
     
     if (!sessions || sessions.length === 0) {
+      console.log('❌ No valid session found in database for token');
       throw new Error('Session expired');
     }
     
+    console.log('✅ Valid session found in database');
     return decoded;
-  } catch {
+  } catch (error) {
+    console.log('🔧 Database session check failed:', error);
+    
     // If admin_sessions table doesn't exist, allow fallback admin
     if (decoded.adminId === 'fallback-admin-id') {
+      console.log('🔧 Using fallback admin session');
       return decoded;
     }
+    
+    // For development, if database tables don't exist yet, allow valid JWT tokens
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Development mode: allowing valid JWT without database session');
+      return decoded;
+    }
+    
     throw new Error('Session expired');
   }
+}
+
+// Fallback data for when database is not available
+function getMockAdminData() {
+  return {
+    overview: {
+      totalUsers: 0,
+      totalTeams: 0,
+      activeTeams: 0,
+      contestActive: false
+    },
+    recentActivity: {
+      submissions: [],
+      adminActions: []
+    },
+    activeTeams: [],
+    submissionStats: [],
+    performanceMetrics: [],
+    systemStatus: {
+      databaseConnected: false,
+      contestConfig: null,
+      lastUpdated: new Date().toISOString()
+    }
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -82,6 +118,13 @@ export async function GET(request: NextRequest) {
     }
     
     await verifyAdminSession(token);
+    
+    // Check if database is available before attempting queries
+    if (!isDatabaseConnected()) {
+      console.log('🔧 Using fallback mock data for admin dashboard');
+      const mockData = getMockAdminData();
+      return NextResponse.json(mockData);
+    }
     
     try {
       // Get real-time statistics from PostgreSQL
@@ -239,36 +282,10 @@ export async function GET(request: NextRequest) {
       
     } catch (dbError) {
       console.error('Database error in admin monitor:', dbError);
+      console.log('🔧 Using fallback mock data for admin dashboard');
       
-      // Return minimal fallback data
-      return NextResponse.json({
-        overview: {
-          totalTeams: 0,
-          totalUsers: 0,
-          activeTeams: 0,
-          contestActive: false,
-          votingActive: false,
-          votingPhase: 'waiting'
-        },
-        recentActivity: {
-          submissions: [],
-          adminActions: []
-        },
-        activeTeams: [],
-        submissionStats: [],
-        performanceMetrics: {
-          completedMembers: 0,
-          teamsWithSubmissions: 0,
-          averageQuizScore: 0
-        },
-        systemStatus: {
-          databaseConnected: false,
-          contestConfig: null,
-          votingSession: null,
-          lastUpdated: new Date().toISOString(),
-          error: 'Database connection failed'
-        }
-      });
+      // Return fallback data when database is not available
+      return NextResponse.json(getMockAdminData());
     }
     
   } catch (error) {

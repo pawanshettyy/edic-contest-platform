@@ -332,7 +332,7 @@ export default function AdminDashboard() {
                 </p>
                 <SimpleButton 
                   className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                  onClick={() => router.push('/admin/questions')}
+                  onClick={() => router.push('/admin/config?tab=questions')}
                 >
                   Manage Questions
                 </SimpleButton>

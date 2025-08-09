@@ -7,15 +7,13 @@ interface QuizOption {
   points: number;
   is_correct: boolean;
   option_order: number;
+  category: string; // Category for this specific option
 }
 
 interface QuizQuestion {
   id?: string;
   question: string;
   question_type: string;
-  difficulty: string;
-  category: string;
-  time_limit: number;
   explanation: string;
   is_active: boolean;
   options: QuizOption[];
@@ -25,9 +23,6 @@ interface DatabaseQuestion {
   id: string;
   question: string;
   question_type: string;
-  difficulty: string;
-  category: string;
-  time_limit: number;
   explanation: string;
   is_active: boolean;
   created_at: string;
@@ -41,6 +36,7 @@ interface DatabaseOption {
   points: number;
   is_correct: boolean;
   option_order: number;
+  category: string; // Category for this specific option
 }
 
 // GET - Fetch all questions with options
@@ -49,7 +45,7 @@ export async function GET(): Promise<NextResponse> {
     // Fetch all questions
     const questionsResult = await query(`
       SELECT 
-        id, question, question_type, difficulty, category, 
+        id, question, question_type, difficulty, 
         time_limit, explanation, is_active, created_at, updated_at
       FROM quiz_questions 
       ORDER BY created_at DESC
@@ -58,7 +54,7 @@ export async function GET(): Promise<NextResponse> {
     // Fetch all options for all questions
     const optionsResult = await query(`
       SELECT 
-        id, question_id, option_text, points, is_correct, option_order
+        id, question_id, option_text, points, is_correct, option_order, category
       FROM quiz_options 
       ORDER BY question_id, option_order
     `);
@@ -99,6 +95,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const data: QuizQuestion = await request.json();
 
+    // Check if maximum questions limit is reached
+    const countResult = await query('SELECT COUNT(*) as count FROM quiz_questions');
+    const questionCount = parseInt((countResult as any).rows[0].count);
+    
+    if (questionCount >= 15) {
+      return NextResponse.json(
+        { success: false, error: 'Maximum 15 questions allowed' },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields
     if (!data.question?.trim()) {
       return NextResponse.json(
@@ -127,16 +134,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Insert question
       const questionResult = await client.query(`
         INSERT INTO quiz_questions (
-          question, question_type, difficulty, category, 
-          time_limit, explanation, is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          question, question_type, 
+          explanation, is_active
+        ) VALUES ($1, $2, $3, $4)
         RETURNING id
       `, [
         data.question.trim(),
         data.question_type,
-        data.difficulty,
-        data.category,
-        data.time_limit,
         data.explanation?.trim() || '',
         data.is_active
       ]);
@@ -148,14 +152,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         if (option.option_text.trim()) {
           await client.query(`
             INSERT INTO quiz_options (
-              question_id, option_text, points, is_correct, option_order
-            ) VALUES ($1, $2, $3, $4, $5)
+              question_id, option_text, points, is_correct, option_order, category
+            ) VALUES ($1, $2, $3, $4, $5, $6)
           `, [
             questionId,
             option.option_text.trim(),
             option.points || 0,
             option.is_correct,
-            option.option_order
+            option.option_order,
+            option.category || 'General'
           ]);
         }
       }
@@ -221,16 +226,13 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       // Update question
       await client.query(`
         UPDATE quiz_questions 
-        SET question = $1, question_type = $2, difficulty = $3, 
-            category = $4, time_limit = $5, explanation = $6, 
-            is_active = $7, updated_at = NOW()
-        WHERE id = $8
+        SET question = $1, question_type = $2, 
+            explanation = $3, 
+            is_active = $4, updated_at = NOW()
+        WHERE id = $5
       `, [
         data.question.trim(),
         data.question_type,
-        data.difficulty,
-        data.category,
-        data.time_limit,
         data.explanation?.trim() || '',
         data.is_active,
         questionId
@@ -244,14 +246,15 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         if (option.option_text.trim()) {
           await client.query(`
             INSERT INTO quiz_options (
-              question_id, option_text, points, is_correct, option_order
-            ) VALUES ($1, $2, $3, $4, $5)
+              question_id, option_text, points, is_correct, option_order, category
+            ) VALUES ($1, $2, $3, $4, $5, $6)
           `, [
             questionId,
             option.option_text.trim(),
             option.points || 0,
             option.is_correct,
-            option.option_order
+            option.option_order,
+            option.category || 'General'
           ]);
         }
       }

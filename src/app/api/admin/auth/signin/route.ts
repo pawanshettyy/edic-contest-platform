@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { supabase } from '@/lib/supabase';
+import { query, isDatabaseConnected } from '@/lib/database';
 
 // Validation schema
 const adminSignInSchema = z.object({
@@ -38,21 +38,63 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validatedData = adminSignInSchema.parse(body);
     
-    // Find admin user in database using Supabase client
-    const { data: adminUsers, error } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('username', validatedData.username)
-      .eq('is_active', true)
-      .limit(1);
-    
-    if (error) {
-      console.error('❌ Database error:', error);
+    // Check if database is available
+    if (!isDatabaseConnected()) {
+      console.log('🔧 Database not available, checking fallback admin credentials');
       
-      // If database tables don't exist yet, provide a default admin for development
-      if (error.message?.includes('relation "admin_users" does not exist') || 
-          error.message?.includes('table') ||
-          error.code === 'PGRST116') {
+      // Use fallback admin for development
+      if (validatedData.username === 'admin' && validatedData.password === 'admin123') {
+        console.log('✅ Fallback admin authentication successful');
+        
+        // Create session token for fallback admin
+        const payload = {
+          adminId: 'fallback-admin',
+          username: 'admin',
+          role: 'super_admin',
+          sessionType: 'development'
+        };
+        
+        const token = jwt.sign(payload, process.env.JWT_SECRET || 'fallback-secret', {
+          expiresIn: '24h'
+        });
+        
+        const response = NextResponse.json({
+          success: true,
+          message: 'Admin signin successful (development mode)',
+          user: {
+            id: 'fallback-admin',
+            username: 'admin',
+            role: 'super_admin'
+          }
+        });
+        
+        response.cookies.set('admin-token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 24 * 60 * 60 // 24 hours
+        });
+        
+        return response;
+      } else {
+        return NextResponse.json(
+          { success: false, message: 'Invalid credentials' },
+          { status: 401 }
+        );
+      }
+    }
+    
+    // Find admin user in database using PostgreSQL
+    const adminUsers = await query(
+      'SELECT * FROM admin_users WHERE username = $1 AND is_active = true LIMIT 1',
+      [validatedData.username]
+    );
+    
+    if (!adminUsers || adminUsers.length === 0) {
+      console.error('❌ No admin users found');
+      
+      // If no admin found, try fallback for development
+      if (validatedData.username === 'admin' && validatedData.password === 'admin123') {
         console.log('🔧 Database tables not ready, using fallback admin');
         
         if (validatedData.username === 'admin' && validatedData.password === 'admin123') {
@@ -133,10 +175,10 @@ export async function POST(request: NextRequest) {
     console.log('✅ Password validation successful');
     
     // Update last login
-    await supabase
-      .from('admin_users')
-      .update({ last_login: new Date().toISOString() })
-      .eq('id', adminUser.id);
+    await query(
+      'UPDATE admin_users SET last_login = NOW() WHERE id = $1',
+      [adminUser.id]
+    );
     
     // Create session token
     const sessionToken = jwt.sign(
@@ -154,25 +196,39 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 8);
     
-    await supabase
-      .from('admin_sessions')
-      .insert({
-        admin_user_id: adminUser.id,
-        session_token: sessionToken,
-        ip_address: clientIp,
-        user_agent: request.headers.get('user-agent') || 'unknown',
-        expires_at: expiresAt.toISOString()
-      });
+    try {
+      await query(`
+        INSERT INTO admin_sessions (admin_user_id, session_token, ip_address, user_agent, expires_at)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [
+        adminUser.id,
+        sessionToken,
+        clientIp,
+        request.headers.get('user-agent') || 'unknown',
+        expiresAt.toISOString()
+      ]);
+      console.log('✅ Session stored in database successfully');
+    } catch (sessionError) {
+      console.log('⚠️ Failed to store session in database:', sessionError);
+      console.log('🔧 Continuing without database session (development mode)');
+    }
     
     // Log admin login
-    await supabase
-      .from('admin_logs')
-      .insert({
-        admin_user_id: adminUser.id,
-        action: 'admin_login',
-        details: { username: adminUser.username },
-        ip_address: clientIp
-      });
+    try {
+      await query(`
+        INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
+        VALUES ($1, $2, $3, $4)
+      `, [
+        adminUser.id,
+        'admin_login',
+        JSON.stringify({ username: adminUser.username }),
+        clientIp
+      ]);
+      console.log('✅ Admin login logged successfully');
+    } catch (logError) {
+      console.log('⚠️ Failed to log admin login:', logError);
+      console.log('🔧 Continuing without logging (development mode)');
+    }
     
     // Return success response (excluding sensitive data)
     const responseAdmin = {
