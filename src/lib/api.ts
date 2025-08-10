@@ -38,19 +38,12 @@ export class ApiClient {
         'Content-Type': 'application/json',
         ...options.headers,
       },
+      credentials: 'include', // Include cookies for session-based auth
       ...options,
     };
 
-    // Add auth token if available
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('auth_token');
-      if (token) {
-        config.headers = {
-          ...config.headers,
-          Authorization: `Bearer ${token}`,
-        };
-      }
-    }
+    // Session-based authentication using HTTP-only cookies
+    // No need for localStorage token management
 
     try {
       const response = await fetch(url, config);

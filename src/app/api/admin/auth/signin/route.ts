@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { query, isDatabaseConnected } from '@/lib/database';
+import { isDatabaseConnected, getSql } from '@/lib/database';
 
 // Validation schema
 const adminSignInSchema = z.object({
@@ -13,13 +13,13 @@ const adminSignInSchema = z.object({
 interface AdminUser {
   id: string;
   username: string;
-  email: string;
+  email?: string;
   password_hash: string;
   role: string;
-  permissions: Record<string, unknown>;
+  permissions?: Record<string, unknown>;
   is_active: boolean;
-  last_login: string | null;
-  created_at: string;
+  last_login?: string | null;
+  created_at: string | Date;
 }
 
 export async function POST(request: NextRequest) {
@@ -85,10 +85,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Find admin user in database using PostgreSQL
-    const adminUsers = await query(
-      'SELECT * FROM admin_users WHERE username = $1 AND is_active = true LIMIT 1',
-      [validatedData.username]
-    );
+    const sql = getSql();
+    const adminUsers = await sql`
+      SELECT * FROM admin_users 
+      WHERE username = ${validatedData.username} AND is_active = true 
+      LIMIT 1
+    ` as AdminUser[];
     
     if (!adminUsers || adminUsers.length === 0) {
       console.error('❌ No admin users found');
@@ -175,10 +177,7 @@ export async function POST(request: NextRequest) {
     console.log('✅ Password validation successful');
     
     // Update last login
-    await query(
-      'UPDATE admin_users SET last_login = NOW() WHERE id = $1',
-      [adminUser.id]
-    );
+    await sql`UPDATE admin_users SET last_login = NOW() WHERE id = ${adminUser.id}`;
     
     // Create session token
     const sessionToken = jwt.sign(
@@ -197,16 +196,10 @@ export async function POST(request: NextRequest) {
     expiresAt.setHours(expiresAt.getHours() + 8);
     
     try {
-      await query(`
-        INSERT INTO admin_sessions (admin_user_id, session_token, ip_address, user_agent, expires_at)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [
-        adminUser.id,
-        sessionToken,
-        clientIp,
-        request.headers.get('user-agent') || 'unknown',
-        expiresAt.toISOString()
-      ]);
+      await sql`
+        INSERT INTO admin_sessions (admin_user_id, session_token, expires_at)
+        VALUES (${adminUser.id}, ${sessionToken}, ${expiresAt.toISOString()})
+      `;
       console.log('✅ Session stored in database successfully');
     } catch (sessionError) {
       console.log('⚠️ Failed to store session in database:', sessionError);
@@ -215,15 +208,10 @@ export async function POST(request: NextRequest) {
     
     // Log admin login
     try {
-      await query(`
+      await sql`
         INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-        VALUES ($1, $2, $3, $4)
-      `, [
-        adminUser.id,
-        'admin_login',
-        JSON.stringify({ username: adminUser.username }),
-        clientIp
-      ]);
+        VALUES (${adminUser.id}, 'admin_login', ${JSON.stringify({ username: adminUser.username })}, ${clientIp})
+      `;
       console.log('✅ Admin login logged successfully');
     } catch (logError) {
       console.log('⚠️ Failed to log admin login:', logError);

@@ -27,21 +27,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading: true,
   });
 
-  // Load auth state from localStorage on mount
+  // Load auth state from session API on mount
   useEffect(() => {
-    const loadAuthState = () => {
+    const loadAuthState = async () => {
       try {
-        const storedUser = localStorage.getItem('axios_user');
-        const storedTeam = localStorage.getItem('axios_team');
+        const response = await fetch('/api/auth/session');
         
-        if (storedUser && storedTeam && storedUser.trim() !== '' && storedTeam.trim() !== '') {
-          const parsedUser = JSON.parse(storedUser);
-          const parsedTeam = JSON.parse(storedTeam);
+        if (response.ok) {
+          const result = await response.json();
           
-          if (parsedUser && parsedTeam) {
+          if (result.success && result.data) {
             setAuthState({
-              user: parsedUser,
-              team: parsedTeam,
+              user: result.data.user,
+              team: result.data.team,
               isAuthenticated: true,
               isLoading: false,
             });
@@ -49,14 +47,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setAuthState(prev => ({ ...prev, isLoading: false }));
           }
         } else {
+          // No valid session found
           setAuthState(prev => ({ ...prev, isLoading: false }));
         }
       } catch (error) {
         console.error('Error loading auth state:', error);
-        // Clear potentially corrupted localStorage data
-        localStorage.removeItem('axios_user');
-        localStorage.removeItem('axios_team');
-        localStorage.removeItem('axios_teams');
         setAuthState(prev => ({ ...prev, isLoading: false }));
       }
     };
@@ -68,44 +63,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthState(prev => ({ ...prev, isLoading: true }));
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create team and user objects
-      const teamId = `team_${Date.now()}`;
-      const leaderId = `user_${Date.now()}`;
-      
-      const team: Team = {
-        id: teamId,
-        name: data.teamName,
-        leader: {
-          id: leaderId,
-          name: data.leaderName,
-          email: data.email,
+      console.log('🚀 Making signup API call...');
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        members: [
-          { id: leaderId, name: data.leaderName, email: data.email },
-          { id: `user_${Date.now() + 1}`, name: data.member1Name },
-          { id: `user_${Date.now() + 2}`, name: data.member2Name },
-          { id: `user_${Date.now() + 3}`, name: data.member3Name },
-        ],
-        teamPassword: data.teamPassword,
-        createdAt: new Date(),
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create team');
+      }
+
+      console.log('✅ Team created successfully:', result);
+
+      // Extract user and team data from API response
+      const team: Team = {
+        id: result.team.id,
+        name: result.team.name,
+        leader: {
+          id: `leader_${result.team.id}`,
+          name: result.team.leader.name,
+          email: result.team.leader.email,
+        },
+        members: result.team.members.map((member: { name: string; email?: string; isLeader: boolean }, index: number) => ({
+          id: `member_${result.team.id}_${index}`,
+          name: member.name,
+          email: member.email || '',
+        })),
+        teamPassword: '', // Don't store password
+        createdAt: new Date(result.team.createdAt),
       };
 
       const user: User = {
-        id: leaderId,
-        name: data.leaderName,
-        email: data.email,
-        teamId: teamId,
-        teamName: data.teamName,
+        id: `leader_${result.team.id}`,
+        name: result.team.leader.name,
+        email: result.team.leader.email,
+        teamId: result.team.id,
+        teamName: result.team.name,
         isLeader: true,
       };
 
-      // Store in localStorage (in real app, this would be an API call)
-      localStorage.setItem('axios_teams', JSON.stringify([team]));
-      localStorage.setItem('axios_user', JSON.stringify(user));
-      localStorage.setItem('axios_team', JSON.stringify(team));
+      // Store session is handled by HTTP-only cookies
+      // No need for localStorage - session is managed server-side
 
       setAuthState({
         user,
@@ -115,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (error) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      console.error('Signup error:', error);
       throw error;
     }
   };
@@ -123,42 +127,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthState(prev => ({ ...prev, isLoading: true }));
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Get teams from localStorage
-      const teamsData = localStorage.getItem('axios_teams');
-      const teams: Team[] = teamsData && teamsData.trim() !== '' ? JSON.parse(teamsData) : [];
-      
-      // Find the team
-      const team = teams.find(t => t.name.toLowerCase() === data.teamName.toLowerCase());
-      if (!team) {
-        throw new Error('Team not found');
+      console.log('🔐 Making signin API call...');
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          teamName: data.teamName,
+          memberName: data.memberName,
+          teamPassword: data.teamPassword,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to sign in');
       }
-      
-      // Verify team password
-      if (team.teamPassword !== data.teamPassword) {
-        throw new Error('Invalid team password');
-      }
-      
-      // Find the member
-      const member = team.members.find(m => m.name.toLowerCase() === data.memberName.toLowerCase());
-      if (!member) {
-        throw new Error('Member not found in this team');
-      }
-      
-      const user: User = {
-        id: member.id,
-        name: member.name,
-        email: member.email,
-        teamId: team.id,
-        teamName: team.name,
-        isLeader: team.leader.id === member.id,
+
+      console.log('✅ Signin successful:', result);
+
+      // Extract user and team data from API response
+      const team: Team = {
+        id: result.team.id,
+        name: result.team.name,
+        leader: {
+          id: `leader_${result.team.id}`,
+          name: result.team.leader.name,
+          email: result.team.leader.email,
+        },
+        members: result.team.members.map((member: { name: string; email?: string; isLeader: boolean }, index: number) => ({
+          id: `member_${result.team.id}_${index}`,
+          name: member.name,
+          email: member.email || '',
+        })),
+        teamPassword: '', // Don't store password
+        createdAt: new Date(result.team.createdAt),
       };
 
-      // Store in localStorage
-      localStorage.setItem('axios_user', JSON.stringify(user));
-      localStorage.setItem('axios_team', JSON.stringify(team));
+      const user: User = {
+        id: result.user.id,
+        name: result.user.name,
+        email: result.user.email,
+        teamId: result.user.teamId,
+        teamName: result.user.teamName,
+        isLeader: result.user.isLeader,
+      };
+
+      // Session is managed server-side with HTTP-only cookies
+      // No need for localStorage - session is managed server-side
 
       setAuthState({
         user,
@@ -168,13 +186,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     } catch (error) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
+      console.error('Signin error:', error);
       throw error;
     }
   };
 
   const signOut = () => {
-    localStorage.removeItem('axios_user');
-    localStorage.removeItem('axios_team');
+    // Clear client-side state
+    // No localStorage to clear - session managed server-side
     setAuthState({
       user: null,
       team: null,

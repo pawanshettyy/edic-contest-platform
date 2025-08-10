@@ -36,30 +36,27 @@ export async function query<T = unknown>(text: string, params?: unknown[]): Prom
   try {
     const sql = getSql();
     
-    // Convert parameterized query to template literal format for Neon
+    // For Neon serverless, convert parameterized queries to template literals
     if (params && params.length > 0) {
-      // Replace $1, $2, etc. with actual values
+      // Build the query using template literal syntax
       let formattedQuery = text;
+      
+      // Replace $1, $2, etc. with actual parameter values
       params.forEach((param, index) => {
         const placeholder = `$${index + 1}`;
-        let replacement: string;
-        
-        if (typeof param === 'string') {
-          replacement = `'${param.replace(/'/g, "''")}'`; // Escape single quotes
-        } else if (param === null || param === undefined) {
-          replacement = 'NULL';
-        } else {
-          replacement = String(param);
-        }
-        
-        formattedQuery = formattedQuery.replace(placeholder, replacement);
+        formattedQuery = formattedQuery.replace(placeholder, '?PARAM' + index + '?');
       });
       
-      const result = await sql([formattedQuery] as unknown as TemplateStringsArray);
+      // Split the query by parameter placeholders
+      const parts = formattedQuery.split(/\?PARAM\d+\?/);
+      const strings = parts.map((part, i) => part + (i < params.length ? '' : ''));
+      
+      // Create a template literal call
+      const result = await sql(strings as unknown as TemplateStringsArray, ...params);
       return result as T[];
     } else {
-      // Simple query without parameters
-      const result = await sql([text] as unknown as TemplateStringsArray);
+      // For simple queries without parameters, use template literal
+      const result = await sql`${text}`;
       return result as T[];
     }
   } catch (error) {

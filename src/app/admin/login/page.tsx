@@ -143,10 +143,10 @@ export default function AdminLoginPage() {
 
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-              <p className="font-medium text-center">Database Admin Credentials:</p>
-              <p className="text-center">Username: admin | Password: admin123</p>
-              <p className="text-yellow-600 dark:text-yellow-400 mt-2 text-center">
-                ⚠️ Only database-stored admin accounts can access
+              <p className="font-medium text-center">Admin Access</p>
+              <p className="text-center">Contact your system administrator for login credentials</p>
+              <p className="text-blue-600 dark:text-blue-400 mt-2 text-center">
+                🔐 Secure database authentication required
               </p>
             </div>
           </div>

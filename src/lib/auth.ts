@@ -1,72 +1,76 @@
 import { SignUpFormData, SignInFormData, User, Team } from '@/types/auth';
 
-// Auth utility functions
-export const AUTH_STORAGE_KEYS = {
-  USER: 'axios_user',
-  TEAM: 'axios_team',
-  TEAMS: 'axios_teams',
-} as const;
+// Auth utility functions - now using session-based authentication
 
-export function getStoredUser(): User | null {
-  if (typeof window === 'undefined') return null;
-  
+// Session management - replaced localStorage with server-side sessions
+export async function getSessionUser(): Promise<User | null> {
   try {
-    const storedUser = localStorage.getItem(AUTH_STORAGE_KEYS.USER);
-    return storedUser && storedUser.trim() !== '' ? JSON.parse(storedUser) : null;
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.user || null;
   } catch (error) {
-    console.error('Error getting stored user:', error);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.USER);
+    console.error('Error getting session user:', error);
     return null;
   }
+}
+
+export async function getSessionTeam(): Promise<Team | null> {
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    return data.team || null;
+  } catch (error) {
+    console.error('Error getting session team:', error);
+    return null;
+  }
+}
+
+// Deprecated - kept for backward compatibility but will be removed
+export function getStoredUser(): User | null {
+  console.warn('getStoredUser is deprecated. Use getSessionUser instead.');
+  return null;
 }
 
 export function getStoredTeam(): Team | null {
-  if (typeof window === 'undefined') return null;
-  
-  try {
-    const storedTeam = localStorage.getItem(AUTH_STORAGE_KEYS.TEAM);
-    return storedTeam && storedTeam.trim() !== '' ? JSON.parse(storedTeam) : null;
-  } catch (error) {
-    console.error('Error getting stored team:', error);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.TEAM);
-    return null;
-  }
+  console.warn('getStoredTeam is deprecated. Use getSessionTeam instead.');
+  return null;
 }
 
 export function getStoredTeams(): Team[] {
-  if (typeof window === 'undefined') return [];
-  
-  try {
-    const storedTeams = localStorage.getItem(AUTH_STORAGE_KEYS.TEAMS);
-    return storedTeams && storedTeams.trim() !== '' ? JSON.parse(storedTeams) : [];
-  } catch (error) {
-    console.error('Error getting stored teams:', error);
-    localStorage.removeItem(AUTH_STORAGE_KEYS.TEAMS);
-    return [];
-  }
+  console.warn('getStoredTeams is deprecated. Teams are now managed server-side.');
+  return [];
 }
 
-export function storeUser(user: User): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(AUTH_STORAGE_KEYS.USER, JSON.stringify(user));
+// Deprecated - session management is now server-side
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function storeUser(_user: User): void {
+  console.warn('storeUser is deprecated. Sessions are managed server-side.');
 }
 
-export function storeTeam(team: Team): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(AUTH_STORAGE_KEYS.TEAM, JSON.stringify(team));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function storeTeam(_team: Team): void {
+  console.warn('storeTeam is deprecated. Sessions are managed server-side.');
 }
 
-export function storeTeams(teams: Team[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(AUTH_STORAGE_KEYS.TEAMS, JSON.stringify(teams));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function storeTeams(_teams: Team[]): void {
+  console.warn('storeTeams is deprecated. Teams are managed server-side.');
 }
 
 export function clearAuthStorage(): void {
-  if (typeof window === 'undefined') return;
-  
-  localStorage.removeItem(AUTH_STORAGE_KEYS.USER);
-  localStorage.removeItem(AUTH_STORAGE_KEYS.TEAM);
-  // Note: We don't clear teams as they persist for other users
+  console.warn('clearAuthStorage is deprecated. Use logout API endpoint.');
 }
 
 export function validateSignUpData(data: SignUpFormData): string[] {
