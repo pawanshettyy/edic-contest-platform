@@ -40,14 +40,18 @@ export async function GET() {
   }
   
   const health = {
-    status: 'ok',
+    status: dbHealth.healthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     services: {
       database: dbHealth.healthy ? 'healthy' : 'unhealthy',
       api: 'healthy',
     },
     version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV,
+    environment: process.env.NODE_ENV || 'development',
+    deployment: {
+      region: process.env.VERCEL_REGION || 'unknown',
+      url: process.env.NEXT_PUBLIC_APP_URL || 'localhost'
+    },
     details: {
       database: {
         connected: dbHealth.healthy,

@@ -13,8 +13,11 @@
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:reset": "node scripts/reset.js",
+    "db:setup-prod": "node scripts/setup-production-db.js",
     "postinstall": "npm run type-check",
-    "vercel-build": "npm run build"
+    "vercel-build": "npm run build",
+    "deploy": "vercel --prod",
+    "preview": "vercel"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

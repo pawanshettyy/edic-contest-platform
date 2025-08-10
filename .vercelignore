@@ -1,0 +1,51 @@
+# Vercel ignore file - exclude unnecessary files from deployment
+
+# Environment files
+.env.local
+.env.development
+.env.test
+.env.production.example
+
+# Development files
+test-db-connection.js
+setup-db-simple.js
+setup-database.js
+
+# Node modules and build artifacts
+node_modules
+.next
+out
+dist
+build
+
+# Testing and development tools
+coverage
+.nyc_output
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Documentation drafts
+README-draft.md
+NOTES.md
