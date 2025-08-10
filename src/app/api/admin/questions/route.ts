@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, transaction } from '@/lib/database';
+import { query } from '@/lib/database';
 
 interface QuizOption {
   id?: string;
@@ -129,10 +129,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Create question and options in a transaction
-    const result = await transaction(async (client) => {
+    // Create question and options (converted from transaction for Neon serverless)
+    try {
       // Insert question
-      const questionResult = await client.query(`
+      const questionResult = await query(`
         INSERT INTO quiz_questions (
           question, question_type, 
           explanation, is_active
@@ -145,12 +145,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         data.is_active
       ]);
 
-      const questionId = (questionResult.rows as { id: string }[])[0].id;
+      const questionId = (questionResult[0] as { id: string }).id;
 
       // Insert options
       for (const option of data.options) {
         if (option.option_text.trim()) {
-          await client.query(`
+          await query(`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
             ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -165,15 +165,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         }
       }
 
-      return questionId;
-    });
+      return NextResponse.json({
+        success: true,
+        message: 'Question created successfully',
+        questionId: questionId
+      });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Question created successfully',
-      questionId: result
-    });
-
+    } catch (error) {
+      console.error('Error creating question:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to create question' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Error creating question:', error);
     return NextResponse.json(
@@ -221,10 +225,10 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Update question and options in a transaction
-    await transaction(async (client) => {
+    // Update question and options (converted from transaction for Neon serverless)
+    try {
       // Update question
-      await client.query(`
+      await query(`
         UPDATE quiz_questions 
         SET question = $1, question_type = $2, 
             explanation = $3, 
@@ -239,12 +243,12 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       ]);
 
       // Delete existing options
-      await client.query('DELETE FROM quiz_options WHERE question_id = $1', [questionId]);
+      await query('DELETE FROM quiz_options WHERE question_id = $1', [questionId]);
 
       // Insert new options
       for (const option of data.options) {
         if (option.option_text.trim()) {
-          await client.query(`
+          await query(`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
             ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -258,7 +262,19 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
           ]);
         }
       }
-    });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Question updated successfully'
+      });
+
+    } catch (error) {
+      console.error('Error updating question:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to update question' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

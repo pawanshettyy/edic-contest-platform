@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { query, transaction } from '@/lib/database';
+import { query } from '@/lib/database';
 
 type VotingPhase = 'waiting' | 'pitching' | 'voting' | 'break' | 'completed';
 
@@ -163,16 +163,15 @@ async function getVotingSession(): Promise<VotingSession | null> {
 // Create new voting session
 async function createVotingSession(): Promise<VotingSession | null> {
   try {
-    await transaction(async (client) => {
-      // Deactivate any existing sessions
-      await client.query('UPDATE voting_sessions SET is_active = false WHERE is_active = true');
+    // Deactivate any existing sessions
+    await query('UPDATE voting_sessions SET is_active = false WHERE is_active = true');
 
-      // Create new session
-      const sessionResult = await client.query(`
-        INSERT INTO voting_sessions (
-          round_id, phase, phase_start_time, phase_end_time, 
-          pitch_duration, voting_duration, is_active
-        )
+    // Create new session
+    const sessionResult = await query(`
+      INSERT INTO voting_sessions (
+        round_id, phase, phase_start_time, phase_end_time, 
+        pitch_duration, voting_duration, is_active
+      )
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `, [
@@ -185,25 +184,22 @@ async function createVotingSession(): Promise<VotingSession | null> {
         true
       ]);
 
-      const session = sessionResult.rows[0];
+    const session = sessionResult[0] as { id: string };
 
-      // Initialize voting teams
-      const teams = await client.query('SELECT id, team_name FROM teams WHERE status = $1 ORDER BY id', ['active']);
+    // Initialize voting teams
+    const teams = await query('SELECT id, team_name FROM teams WHERE status = $1 ORDER BY id', ['active']);
+    
+    for (let i = 0; i < teams.length; i++) {
+      await query(`
+        INSERT INTO voting_teams (session_id, team_id, presentation_order)
+        VALUES ($1, $2, $3)
+      `, [session.id, (teams[i] as { id: string }).id, i + 1]);
       
-      for (let i = 0; i < teams.rows.length; i++) {
-        await client.query(`
-          INSERT INTO voting_teams (session_id, team_id, presentation_order)
-          VALUES ($1, $2, $3)
-        `, [session.id, teams.rows[i].id, i + 1]);
-        
-        // Update team presentation order
-        await client.query(`
-          UPDATE teams SET presentation_order = $1 WHERE id = $2
-        `, [i + 1, teams.rows[i].id]);
-      }
-
-      return session;
-    });
+      // Update team presentation order
+      await query(`
+        UPDATE teams SET presentation_order = $1 WHERE id = $2
+      `, [i + 1, (teams[i] as { id: string }).id]);
+    }
 
     return await getVotingSession();
   } catch (error) {
@@ -355,10 +351,10 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Record the vote in transaction
-      const result = await transaction(async (client) => {
+      // Record the vote
+      try {
         // Insert vote record
-        const voteResult = await client.query(`
+        const voteResult = await query(`
           INSERT INTO team_votes (
             from_team_id, to_team_id, vote_type, points, session_id
           )
@@ -374,7 +370,7 @@ export async function POST(request: NextRequest) {
 
         // Update downvote count if downvote
         if (voteType === 'downvote') {
-          await client.query(`
+          await query(`
             UPDATE voting_teams
             SET downvotes_used = downvotes_used + 1
             WHERE team_id = $1 AND session_id = $2
@@ -382,7 +378,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update team voting score
-        await client.query(`
+        await query(`
           UPDATE teams
           SET voting_score = COALESCE(voting_score, 0) + $1,
               total_score = COALESCE(total_score, 0) + $1,
@@ -391,18 +387,22 @@ export async function POST(request: NextRequest) {
           WHERE id = $2
         `, [voteType === 'upvote' ? 1 : -1, toTeamId]);
 
-        return voteResult.rows[0];
-      });
+        // Get updated session data
+        const updatedSession = await getVotingSession();
 
-      // Get updated session data
-      const updatedSession = await getVotingSession();
-
-      return NextResponse.json({
-        success: true,
-        vote: result,
-        session: updatedSession,
-        message: `${voteType} recorded successfully`
-      });
+        return NextResponse.json({
+          success: true,
+          vote: voteResult[0],
+          session: updatedSession,
+          message: `${voteType} recorded successfully`
+        });
+      } catch (voteError) {
+        console.error('Error recording vote:', voteError);
+        return NextResponse.json(
+          { error: 'Failed to record vote' },
+          { status: 500 }
+        );
+      }
     }
 
     if (action === 'control') {
@@ -410,7 +410,7 @@ export async function POST(request: NextRequest) {
       const { action: controlAction, teamId } = phaseControlSchema.parse(body);
       const now = new Date();
 
-      await transaction(async (client) => {
+      try {
         switch (controlAction) {
           case 'start_pitch':
             if (!teamId) {
@@ -418,7 +418,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Update session to pitching phase
-            await client.query(`
+            await query(`
               UPDATE voting_sessions
               SET current_presenting_team = $1,
                   phase = 'pitching',
@@ -434,7 +434,7 @@ export async function POST(request: NextRequest) {
               throw new Error('Must be in pitching phase to start voting');
             }
 
-            await client.query(`
+            await query(`
               UPDATE voting_sessions
               SET phase = 'voting',
                   phase_start_time = $1,
@@ -447,14 +447,14 @@ export async function POST(request: NextRequest) {
           case 'next_team':
             // Mark current team as presented
             if (votingSession.current_presenting_team) {
-              await client.query(`
+              await query(`
                 UPDATE voting_teams
                 SET has_presented = true
                 WHERE team_id = $1 AND session_id = $2
               `, [votingSession.current_presenting_team, votingSession.id]);
             }
 
-            await client.query(`
+            await query(`
               UPDATE voting_sessions
               SET phase = 'break',
                   current_presenting_team = NULL
@@ -464,7 +464,7 @@ export async function POST(request: NextRequest) {
             break;
 
           case 'end_session':
-            await client.query(`
+            await query(`
               UPDATE voting_sessions
               SET phase = 'completed',
                   current_presenting_team = NULL,
@@ -474,16 +474,22 @@ export async function POST(request: NextRequest) {
 
             break;
         }
-      });
 
-      // Get updated session
-      const updatedSession = await getVotingSession();
+        // Get updated session
+        const updatedSession = await getVotingSession();
 
-      return NextResponse.json({
-        success: true,
-        session: updatedSession,
-        message: `${controlAction} executed successfully`
-      });
+        return NextResponse.json({
+          success: true,
+          session: updatedSession,
+          message: `${controlAction} executed successfully`
+        });
+      } catch (controlError) {
+        console.error('Error executing control action:', controlError);
+        return NextResponse.json(
+          { error: 'Failed to execute control action' },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json(

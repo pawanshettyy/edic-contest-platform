@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, transaction } from '@/lib/database';
+import { query } from '@/lib/database';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -180,19 +180,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Penalty value required' }, { status: 400 });
           }
           
-          await transaction(async (client) => {
+          try {
             // Add penalty record
-            await client.query(
+            await query(
               'INSERT INTO team_penalties (team_id, penalty_points, reason, applied_by) VALUES ($1, $2, $3, $4)',
               [teamId, value, reason || 'Admin penalty', admin.id]
             );
             
             // Update team score
-            await client.query(
+            await query(
               'UPDATE teams SET offline_score = offline_score - $1, updated_at = NOW() WHERE id = $2',
               [value, teamId]
             );
-          });
+          } catch (error) {
+            console.error('Error applying penalty:', error);
+            return NextResponse.json({ error: 'Failed to apply penalty' }, { status: 500 });
+          }
           break;
           
         case 'reset_progress':
@@ -257,77 +260,82 @@ export async function POST(request: NextRequest) {
       // Hash password
       const passwordHash = await bcrypt.hash(password, 12);
 
-      // Create team in transaction
-      const result = await transaction(async (client) => {
+      // Create team (converted from transaction for Neon serverless)
+      try {
         // Insert team
-        const teamResult = await client.query(
+        const teamResult = await query(
           `INSERT INTO teams (team_name, team_code, password_hash, status)
            VALUES ($1, $2, $3, 'active')
            RETURNING id, team_name, team_code, created_at`,
           [teamName, teamCode, passwordHash]
         );
 
-        const newTeam = teamResult.rows[0];
+        const newTeam = teamResult[0];
 
         // Add members if provided
         if (members.length > 0) {
           for (const member of members) {
             if (member.username && member.email) {
               // Check if user exists
-              const userResult = await client.query(
+              const userResult = await query(
                 'SELECT id FROM users WHERE email = $1',
                 [member.email]
               );
 
               let userId;
-              if (userResult.rows.length === 0) {
+              if (userResult.length === 0) {
                 // Create new user
-                const newUserResult = await client.query(
+                const newUserResult = await query(
                   `INSERT INTO users (username, email, password_hash, is_active)
                    VALUES ($1, $2, $3, true)
                    RETURNING id`,
                   [member.username, member.email, passwordHash]
                 );
-                userId = newUserResult.rows[0].id;
+                userId = (newUserResult[0] as { id: string }).id;
               } else {
-                userId = userResult.rows[0].id;
+                userId = (userResult[0] as { id: string }).id;
               }
 
               // Add to team
-              await client.query(
+              await query(
                 `INSERT INTO team_members (team_id, user_id, is_leader)
                  VALUES ($1, $2, $3)
                  ON CONFLICT (team_id, user_id) DO NOTHING`,
-                [newTeam.id, userId, member.isLeader || false]
+                [(newTeam as { id: string }).id, userId, member.isLeader || false]
               );
             }
           }
         }
 
-        return newTeam;
-      });
+        // Log admin action
+        await query(
+          `INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            admin.id,
+            'CREATE_TEAM',
+            'team',
+            (newTeam as { id: string }).id,
+            JSON.stringify({ team_name: teamName, team_code: teamCode, members_count: members.length }),
+            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+          ]
+        );
 
-      // Log admin action
-      await query(
-        `INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          admin.id,
-          'CREATE_TEAM',
-          'team',
-          result.id,
-          JSON.stringify({ team_name: teamName, team_code: teamCode, members_count: members.length }),
-          request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-        ]
-      );
+        return NextResponse.json({
+          success: true,
+          data: {
+            team: newTeam,
+            message: 'Team created successfully'
+          }
+        }, { status: 201 });
 
-      return NextResponse.json({
-        success: true,
-        data: {
-          team: result,
-          message: 'Team created successfully'
-        }
-      }, { status: 201 });
+      } catch (error) {
+        console.error('Error creating team:', error);
+        return NextResponse.json(
+          { success: false, error: 'Failed to create team' },
+          { status: 500 }
+        );
+      }
     }
 
   } catch (error) {

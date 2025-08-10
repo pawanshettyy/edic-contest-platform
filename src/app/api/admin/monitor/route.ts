@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { query, transaction, isDatabaseConnected } from '@/lib/database';
+import { query, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -34,6 +34,10 @@ interface DatabaseRecord {
   voting_score?: number;
   last_activity?: string;
   status?: string;
+}
+
+interface VotingSessionResult {
+  id: string;
 }
 
 async function verifyAdminSession(token: string) {
@@ -323,16 +327,17 @@ export async function POST(request: NextRequest) {
     
     switch (action) {
       case 'emergency_stop':
-        await transaction(async (client) => {
+        // Since Neon doesn't support traditional transactions, use regular queries
+        try {
           // Emergency stop contest
-          await client.query(`
+          await query(`
             UPDATE contest_config 
             SET contest_active = false, updated_at = NOW()
             WHERE id = 1
           `);
           
           // Log the action
-          await client.query(`
+          await query(`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
             VALUES ($1, $2, $3, $4, $5)
           `, [
@@ -342,21 +347,30 @@ export async function POST(request: NextRequest) {
             JSON.stringify({ reason: data?.reason || 'Emergency stop initiated' }),
             request.headers.get('x-forwarded-for') || 'unknown'
           ]);
-        });
+          
+          return NextResponse.json({ success: true, message: 'Contest stopped' });
+        } catch (error) {
+          console.error('Emergency stop failed:', error);
+          return NextResponse.json(
+            { success: false, error: 'Failed to stop contest' },
+            { status: 500 }
+          );
+        }
         
         return NextResponse.json({ message: 'Contest stopped successfully' });
         
       case 'restart_contest':
-        await transaction(async (client) => {
+        // Since Neon doesn't support traditional transactions, use regular queries
+        try {
           // Restart contest
-          await client.query(`
+          await query(`
             UPDATE contest_config 
             SET contest_active = true, updated_at = NOW()
             WHERE id = 1
           `);
           
           // Log the action
-          await client.query(`
+          await query(`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
             VALUES ($1, $2, $3, $4, $5)
           `, [
@@ -366,18 +380,25 @@ export async function POST(request: NextRequest) {
             JSON.stringify({ reason: data?.reason || 'Contest restarted' }),
             request.headers.get('x-forwarded-for') || 'unknown'
           ]);
-        });
-        
-        return NextResponse.json({ message: 'Contest restarted successfully' });
+          
+          return NextResponse.json({ success: true, message: 'Contest restarted' });
+        } catch (error) {
+          console.error('Restart contest failed:', error);
+          return NextResponse.json(
+            { success: false, error: 'Failed to restart contest' },
+            { status: 500 }
+          );
+        }
 
       case 'start_voting':
-        await transaction(async (client) => {
+        // Since Neon doesn't support traditional transactions, use regular queries
+        try {
           // Create or activate voting session
-          await client.query(`
+          await query(`
             UPDATE voting_sessions SET is_active = false WHERE is_active = true
           `);
           
-          const result = await client.query(`
+          const result = await query<VotingSessionResult>(`
             INSERT INTO voting_sessions (
               round_id, phase, phase_start_time, phase_end_time,
               pitch_duration, voting_duration, is_active
@@ -387,19 +408,25 @@ export async function POST(request: NextRequest) {
           `, ['round2', 'waiting', 90, 30, true]);
           
           // Log the action
-          await client.query(`
+          await query(`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
             VALUES ($1, $2, $3, $4, $5)
           `, [
             admin.adminId,
             'start_voting',
             'voting_session',
-            JSON.stringify({ sessionId: result.rows[0].id }),
+            JSON.stringify({ sessionId: result[0]?.id || 'unknown' }),
             request.headers.get('x-forwarded-for') || 'unknown'
           ]);
-        });
-        
-        return NextResponse.json({ message: 'Voting session started successfully' });
+          
+          return NextResponse.json({ success: true, message: 'Voting session started' });
+        } catch (error) {
+          console.error('Start voting failed:', error);
+          return NextResponse.json(
+            { success: false, error: 'Failed to start voting session' },
+            { status: 500 }
+          );
+        }
         
       case 'clear_cache':
         // Log cache clear action

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { supabase } from '@/lib/supabase';
+import { query, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -43,26 +43,32 @@ async function verifyAdminSession(token: string) {
     throw new Error('Invalid session type');
   }
   
-  // If no supabase client, allow fallback admin
-  if (!supabase) {
+  // If database not available, allow fallback admin
+  if (!isDatabaseConnected()) {
     if (decoded.adminId === 'fallback-admin-id') {
       return decoded;
     }
     throw new Error('Database not configured');
   }
   
-  const { data: sessions, error } = await supabase
-    .from('admin_sessions')
-    .select('*')
-    .eq('session_token', token)
-    .gt('expires_at', new Date().toISOString())
-    .limit(1);
-  
-  if (error || !sessions || sessions.length === 0) {
-    throw new Error('Session expired');
+  try {
+    const sessions = await query(
+      'SELECT * FROM admin_sessions WHERE admin_user_id = $1 AND is_active = true',
+      [decoded.adminId]
+    );
+    
+    if (!sessions || sessions.length === 0) {
+      throw new Error('No active admin session found');
+    }
+    
+    return decoded;
+  } catch (error) {
+    // If admin_sessions table doesn't exist, allow fallback
+    if (decoded.adminId === 'fallback-admin-id') {
+      return decoded;
+    }
+    throw error;
   }
-  
-  return decoded;
 }
 
 export async function GET(request: NextRequest) {
@@ -75,8 +81,8 @@ export async function GET(request: NextRequest) {
     
     await verifyAdminSession(token);
     
-    // If no supabase client, return mock config for development
-    if (!supabase) {
+    // If no database connection, return mock config for development
+    if (!isDatabaseConnected()) {
       return NextResponse.json({
         config: {
           id: 'mock-config',
@@ -98,32 +104,42 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Get contest configuration
-    const { data: config, error: configError } = await supabase
-      .from('contest_config')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    
-    if (configError) {
-      console.error('Config fetch error:', configError);
-      return NextResponse.json({ error: 'Failed to fetch config' }, { status: 500 });
+    try {
+      // Get contest configuration
+      const config = await query(
+        'SELECT * FROM contest_config ORDER BY created_at DESC LIMIT 1'
+      );
+      
+      // Get contest rounds
+      const rounds = await query(
+        'SELECT * FROM contest_rounds ORDER BY round_number ASC'
+      );
+      
+      return NextResponse.json({
+        config: config?.[0] || null,
+        rounds: rounds || []
+      });
+      
+    } catch (dbError) {
+      console.error('Database error in admin config:', dbError);
+      
+      // Return mock data if database error
+      return NextResponse.json({
+        config: {
+          id: 'fallback-config',
+          contest_name: 'EDIC Business Challenge',
+          contest_description: 'Database connection issue - showing fallback data',
+          start_date: new Date().toISOString(),
+          end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          max_teams: 50,
+          team_size: 5,
+          registration_open: true,
+          contest_active: false,
+          current_round: 1
+        },
+        rounds: []
+      });
     }
-    
-    // Get contest rounds
-    const { data: rounds, error: roundsError } = await supabase
-      .from('contest_rounds')
-      .select('*')
-      .order('round_number', { ascending: true });
-    
-    if (roundsError) {
-      console.error('Rounds fetch error:', roundsError);
-    }
-    
-    return NextResponse.json({
-      config: config?.[0] || null,
-      rounds: rounds || []
-    });
     
   } catch (error) {
     console.error('Admin config GET error:', error);
@@ -147,8 +163,8 @@ export async function POST(request: NextRequest) {
     const admin = await verifyAdminSession(token);
     const body = await request.json();
     
-    // If no supabase client, return success for development mode
-    if (!supabase) {
+    // If no database connection, return success for development mode
+    if (!isDatabaseConnected()) {
       return NextResponse.json({ 
         message: 'Configuration updated (development mode)',
         config: body
@@ -158,70 +174,126 @@ export async function POST(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'update_config';
     
-    if (action === 'update_config') {
-      const validatedData = configUpdateSchema.parse(body);
-      
-      // Update or create contest configuration
-      const { data, error } = await supabase
-        .from('contest_config')
-        .upsert({
-          ...validatedData,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'id'
+    try {
+      if (action === 'update_config') {
+        const validatedData = configUpdateSchema.parse(body);
+        
+        // Try to update existing config first
+        const existingConfig = await query(
+          'SELECT id FROM contest_config ORDER BY created_at DESC LIMIT 1'
+        );
+        
+        let result;
+        if (existingConfig && existingConfig.length > 0) {
+          // Update existing config
+          const updateFields = Object.keys(validatedData);
+          const updateValues = Object.values(validatedData);
+          const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+          
+          result = await query(
+            `UPDATE contest_config SET ${setClause}, updated_at = NOW() WHERE id = $${updateFields.length + 1} RETURNING *`,
+            [...updateValues, (existingConfig[0] as { id: string }).id]
+          );
+        } else {
+          // Insert new config
+          const insertFields = Object.keys(validatedData);
+          const insertValues = Object.values(validatedData);
+          const fieldsClause = insertFields.join(', ');
+          const valuesClause = insertFields.map((_, index) => `$${index + 1}`).join(', ');
+          
+          result = await query(
+            `INSERT INTO contest_config (${fieldsClause}, created_at, updated_at) VALUES (${valuesClause}, NOW(), NOW()) RETURNING *`,
+            insertValues
+          );
+        }
+        
+        // Log admin action
+        try {
+          await query(
+            `INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [
+              admin.adminId,
+              'config_update',
+              'config',
+              JSON.stringify(validatedData),
+              request.headers.get('x-forwarded-for') || 'unknown'
+            ]
+          );
+        } catch (logError) {
+          console.warn('Could not log admin action:', logError);
+        }
+        
+        return NextResponse.json({ 
+          message: 'Configuration updated successfully', 
+          data: result?.[0] || validatedData 
         });
-      
-      if (error) {
-        console.error('Config update error:', error);
-        return NextResponse.json({ error: 'Failed to update config' }, { status: 500 });
+        
+      } else if (action === 'update_round') {
+        const validatedData = roundConfigSchema.parse(body);
+        
+        // Try to update existing round first
+        const existingRound = await query(
+          'SELECT id FROM contest_rounds WHERE round_number = $1',
+          [validatedData.round_number]
+        );
+        
+        let result;
+        if (existingRound && existingRound.length > 0) {
+          // Update existing round
+          const updateFields = Object.keys(validatedData).filter(f => f !== 'round_number');
+          const updateValues = updateFields.map(f => validatedData[f as keyof typeof validatedData]);
+          const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+          
+          result = await query(
+            `UPDATE contest_rounds SET ${setClause}, updated_at = NOW() WHERE round_number = $${updateFields.length + 1} RETURNING *`,
+            [...updateValues, validatedData.round_number]
+          );
+        } else {
+          // Insert new round
+          const insertFields = Object.keys(validatedData);
+          const insertValues = Object.values(validatedData);
+          const fieldsClause = insertFields.join(', ');
+          const valuesClause = insertFields.map((_, index) => `$${index + 1}`).join(', ');
+          
+          result = await query(
+            `INSERT INTO contest_rounds (${fieldsClause}, created_at, updated_at) VALUES (${valuesClause}, NOW(), NOW()) RETURNING *`,
+            insertValues
+          );
+        }
+        
+        // Log admin action
+        try {
+          await query(
+            `INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
+             VALUES ($1, $2, $3, $4, $5, NOW())`,
+            [
+              admin.adminId,
+              'round_update',
+              'round',
+              JSON.stringify(validatedData),
+              request.headers.get('x-forwarded-for') || 'unknown'
+            ]
+          );
+        } catch (logError) {
+          console.warn('Could not log admin action:', logError);
+        }
+        
+        return NextResponse.json({ 
+          message: 'Contest round updated successfully', 
+          data: result?.[0] || validatedData 
+        });
+        
+      } else {
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
       }
       
-      // Log admin action
-      await supabase
-        .from('admin_logs')
-        .insert({
-          admin_user_id: admin.adminId,
-          action: 'config_update',
-          target_type: 'config',
-          details: validatedData,
-          ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-        });
-      
-      return NextResponse.json({ message: 'Configuration updated successfully', data });
-      
-    } else if (action === 'update_round') {
-      const validatedData = roundConfigSchema.parse(body);
-      
-      // Update or create contest round
-      const { data, error } = await supabase
-        .from('contest_rounds')
-        .upsert({
-          ...validatedData,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'round_number'
-        });
-      
-      if (error) {
-        console.error('Round update error:', error);
-        return NextResponse.json({ error: 'Failed to update round' }, { status: 500 });
-      }
-      
-      // Log admin action
-      await supabase
-        .from('admin_logs')
-        .insert({
-          admin_user_id: admin.adminId,
-          action: 'round_update',
-          target_type: 'round',
-          details: validatedData,
-          ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-        });
-      
-      return NextResponse.json({ message: 'Contest round updated successfully', data });
-      
-    } else {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+    } catch (dbError) {
+      console.error('Database error in admin config POST:', dbError);
+      return NextResponse.json({ 
+        error: 'Database operation failed',
+        details: action === 'update_config' ? 'Could not update configuration' : 'Could not update round'
+      }, { status: 500 });
     }
     
   } catch (error) {

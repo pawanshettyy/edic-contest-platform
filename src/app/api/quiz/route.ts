@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { query, transaction } from '@/lib/database';
+import { query } from '@/lib/database';
 
 interface ApproachScores {
   capital: number;
@@ -187,8 +187,8 @@ export async function POST(request: NextRequest) {
       teamId = (teamResult[0] as TeamRecord).id;
     }
 
-    // Process answers in transaction
-    const result = await transaction(async (client) => {
+    // Process answers (converted from transaction for Neon serverless)
+    try {
       let memberScore = 0;
       const memberApproachScores: ApproachScores = {
         capital: 0,
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
       // Process each answer
       for (const answer of answers) {
         // Get option details
-        const optionResult = await client.query(
+        const optionResult = await query(
           `SELECT o.points, o.is_correct,
                   CASE 
                     WHEN o.option_order = 1 THEN 'capital'
@@ -214,11 +214,11 @@ export async function POST(request: NextRequest) {
           [answer.selectedOptionId]
         );
 
-        if (optionResult.rows.length === 0) {
+        if (optionResult.length === 0) {
           continue; // Skip invalid options
         }
 
-        const option = optionResult.rows[0];
+        const option = optionResult[0] as { points: number; is_correct: boolean; category: string };
         memberScore += option.points;
 
         // Add to approach scores
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Record the response
-        await client.query(
+        await query(
           `INSERT INTO quiz_responses (team_id, question_id, option_ids, points_earned, is_correct, member_name)
            VALUES ($1, $2, $3, $4, $5, $6)`,
           [
@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Update team quiz score
-      await client.query(
+      await query(
         `UPDATE teams 
          SET quiz_score = COALESCE(quiz_score, 0) + $1,
              total_score = COALESCE(total_score, 0) + $1,
@@ -253,31 +253,28 @@ export async function POST(request: NextRequest) {
         [memberScore, teamId]
       );
 
-      return { memberScore, memberApproachScores };
-    });
-
-    // Calculate team statistics
-    const teamStats = await query(
-      `SELECT 
-         COUNT(DISTINCT member_name) as members_completed,
-         SUM(points_earned) as team_total_score,
-         SUM(CASE WHEN option_ids::text LIKE '%capital%' THEN points_earned ELSE 0 END) as capital_total,
-         SUM(CASE WHEN option_ids::text LIKE '%marketing%' THEN points_earned ELSE 0 END) as marketing_total,
-         SUM(CASE WHEN option_ids::text LIKE '%strategy%' THEN points_earned ELSE 0 END) as strategy_total,
-         SUM(CASE WHEN option_ids::text LIKE '%team%' THEN points_earned ELSE 0 END) as team_total
-       FROM quiz_responses qr
-       JOIN quiz_options o ON o.id = ANY(qr.option_ids)
-       WHERE qr.team_id = $1`,
+      // Calculate team statistics
+      const teamStats = await query(
+        `SELECT 
+           COUNT(DISTINCT member_name) as members_completed,
+           SUM(points_earned) as team_total_score,
+           SUM(CASE WHEN option_ids::text LIKE '%capital%' THEN points_earned ELSE 0 END) as capital_total,
+           SUM(CASE WHEN option_ids::text LIKE '%marketing%' THEN points_earned ELSE 0 END) as marketing_total,
+           SUM(CASE WHEN option_ids::text LIKE '%strategy%' THEN points_earned ELSE 0 END) as strategy_total,
+           SUM(CASE WHEN option_ids::text LIKE '%team%' THEN points_earned ELSE 0 END) as team_total
+         FROM quiz_responses qr
+         JOIN quiz_options o ON o.id = ANY(qr.option_ids)
+         WHERE qr.team_id = $1`,
       [teamId]
     );
 
     const stats = teamStats[0] || {
       members_completed: 1,
-      team_total_score: result.memberScore,
-      capital_total: result.memberApproachScores.capital,
-      marketing_total: result.memberApproachScores.marketing,
-      strategy_total: result.memberApproachScores.strategy,
-      team_total: result.memberApproachScores.team
+      team_total_score: memberScore,
+      capital_total: memberApproachScores.capital,
+      marketing_total: memberApproachScores.marketing,
+      strategy_total: memberApproachScores.strategy,
+      team_total: memberApproachScores.team
     };
 
     // Calculate max possible score
@@ -302,15 +299,23 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      memberScore: result.memberScore,
-      teamTotalScore: Number((stats as TeamStats).team_total_score) || result.memberScore,
+      memberScore: memberScore,
+      teamTotalScore: Number((stats as TeamStats).team_total_score) || memberScore,
       membersCompleted: Number((stats as TeamStats).members_completed) || 1,
       maxPossibleScore: Number(maxPossibleScore),
       questionsAnswered: answers.length,
-      memberApproachScores: result.memberApproachScores,
+      memberApproachScores: memberApproachScores,
       teamApproachScores,
-      message: `Quiz submitted successfully! Your score: ${result.memberScore}. Team total: ${(stats as TeamStats).team_total_score || result.memberScore} (${(stats as TeamStats).members_completed || 1} members completed)`
+      message: `Quiz submitted successfully! Your score: ${memberScore}. Team total: ${(stats as TeamStats).team_total_score || memberScore} (${(stats as TeamStats).members_completed || 1} members completed)`
     });
+
+    } catch (error) {
+      console.error('Quiz submission error:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to submit quiz' },
+        { status: 500 }
+      );
+    }
 
   } catch (error) {
     console.error('Quiz submission error:', error);

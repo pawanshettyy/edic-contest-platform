@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { supabase } from '@/lib/supabase';
+import { query, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -60,9 +60,9 @@ export async function GET(request: NextRequest) {
     }
     
     try {
-      // Check if session exists in database - only if supabase is configured
-      if (!supabase) {
-        // If no supabase, fallback to simple token validation for development
+      // Check if session exists in database - only if database is connected
+      if (!isDatabaseConnected()) {
+        // If no database connection, fallback to simple token validation for development
         if (decoded.adminId === 'fallback-admin-id') {
           return NextResponse.json({
             admin: {
@@ -79,14 +79,12 @@ export async function GET(request: NextRequest) {
         throw new Error('Database not configured');
       }
       
-      const { data: sessions, error: sessionError } = await supabase
-        .from('admin_sessions')
-        .select('*')
-        .eq('session_token', token)
-        .gt('expires_at', new Date().toISOString())
-        .limit(1);
+      const sessions = await query(
+        'SELECT * FROM admin_sessions WHERE session_token = $1 AND expires_at > NOW() LIMIT 1',
+        [token]
+      );
       
-      if (sessionError || !sessions || sessions.length === 0) {
+      if (!sessions || sessions.length === 0) {
         return NextResponse.json(
           { error: 'Session expired or invalid' },
           { status: 401 }
@@ -94,14 +92,12 @@ export async function GET(request: NextRequest) {
       }
       
       // Get current admin user data
-      const { data: adminUsers, error: userError } = await supabase
-        .from('admin_users')
-        .select('id, username, email, role, permissions, is_active, last_login, created_at')
-        .eq('id', decoded.adminId)
-        .eq('is_active', true)
-        .limit(1);
+      const adminUsers = await query(
+        'SELECT id, username, email, role, permissions, is_active, last_login, created_at FROM admin_users WHERE id = $1 AND is_active = true LIMIT 1',
+        [decoded.adminId]
+      );
       
-      if (userError || !adminUsers || adminUsers.length === 0) {
+      if (!adminUsers || adminUsers.length === 0) {
         return NextResponse.json(
           { error: 'Admin user not found or inactive' },
           { status: 401 }
@@ -111,10 +107,14 @@ export async function GET(request: NextRequest) {
       const adminUser = adminUsers[0] as AdminUser;
       
       // Update session last activity (optional - you can skip this if you want)
-      await supabase
-        .from('admin_sessions')
-        .update({ last_activity: new Date().toISOString() })
-        .eq('session_token', token);
+      try {
+        await query(
+          'UPDATE admin_sessions SET last_activity = NOW() WHERE session_token = $1',
+          [token]
+        );
+      } catch (updateError) {
+        console.warn('Could not update session activity:', updateError);
+      }
       
       return NextResponse.json({
         admin: {

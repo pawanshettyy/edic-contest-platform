@@ -1,7 +1,5 @@
-// Simple database connection test
-const { Pool } = require('pg');
-
-// Read environment variables manually
+// Database connection test for Neon (CommonJS)
+const { neon } = require('@neondatabase/serverless');
 const fs = require('fs');
 const path = require('path');
 
@@ -11,108 +9,111 @@ function loadEnvFile() {
     const envContent = fs.readFileSync(envPath, 'utf8');
     
     envContent.split('\n').forEach(line => {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith('#')) {
-        const [key, ...valueParts] = trimmed.split('=');
-        if (key && valueParts.length > 0) {
-          const value = valueParts.join('=').replace(/^["']|["']$/g, '');
-          process.env[key] = value;
-        }
+      const [key, ...values] = line.split('=');
+      if (key && values.length > 0) {
+        const value = values.join('=').replace(/^["']|["']$/g, '');
+        process.env[key.trim()] = value.trim();
       }
     });
     
-    console.log('✅ Environment file loaded');
-  } catch (error) {
-    console.log('⚠️ Could not load .env.local file:', error.message);
+    console.log('✅ Environment variables loaded from .env.local');
+  } catch {
+    console.log('⚠️ Could not load .env.local file, using system environment variables');
   }
 }
 
-async function testConnection() {
-  console.log('🔍 Testing database connection...');
+async function testNeonConnection() {
+  console.log('🔍 Testing Neon database connection...');
   
   // Load environment variables
   loadEnvFile();
   
-  console.log('📊 DATABASE_URL exists:', !!process.env.DATABASE_URL);
-  
+  // Check environment variable
   if (!process.env.DATABASE_URL) {
-    console.log('❌ No DATABASE_URL found in environment');
-    return;
+    console.error('❌ DATABASE_URL environment variable is not set');
+    return false;
   }
-
-  // Mask sensitive parts of the URL for logging
-  const maskedUrl = process.env.DATABASE_URL.replace(/:([^:@]+)@/, ':****@');
-  console.log('🔗 Connecting to:', maskedUrl);
-
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    },
-    max: 1,
-    connectionTimeoutMillis: 10000,
-  });
-
+  
+  console.log('✅ DATABASE_URL is configured');
+  console.log('🔗 Connection string preview:', process.env.DATABASE_URL.substring(0, 30) + '...');
+  
   try {
-    console.log('⏳ Attempting to connect...');
-    const client = await pool.connect();
-    console.log('✅ Database connection successful!');
+    const sql = neon(process.env.DATABASE_URL);
     
-    // Test a simple query
-    const result = await client.query('SELECT NOW() as current_time, version() as postgres_version');
-    console.log('⏰ Current time:', result.rows[0].current_time);
-    console.log('🗄️ PostgreSQL version:', result.rows[0].postgres_version.substring(0, 50) + '...');
+    // Test basic connection
+    console.log('📡 Testing basic connection...');
+    const result = await sql`SELECT 1 as test, NOW() as timestamp, version() as db_version`;
     
-    // Test if our tables exist
-    const tableCheck = await client.query(`
-      SELECT table_name 
-      FROM information_schema.tables 
-      WHERE table_schema = 'public' 
-      AND table_name IN ('admin_users', 'teams', 'quiz_questions')
-      ORDER BY table_name
-    `);
+    console.log('✅ Connection successful!');
+    console.log('📊 Test result:', {
+      test: result[0]?.test,
+      timestamp: result[0]?.timestamp,
+      version: result[0]?.db_version?.substring(0, 50) + '...'
+    });
     
-    console.log('📋 Tables found:', tableCheck.rows.map(r => r.table_name));
-    
-    if (tableCheck.rows.length === 0) {
-      console.log('⚠️ No tables found - you need to run the database schema!');
-      console.log('📝 Go to Neon Dashboard > SQL Editor and run the schema from database/optimized-schema.sql');
-    } else {
-      console.log('✅ Database schema appears to be set up');
+    // Test if teams table exists
+    console.log('🔍 Checking if teams table exists...');
+    try {
+      const tableCheck = await sql`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'teams'
+      `;
       
-      // Test admin user exists
-      const adminCheck = await client.query('SELECT username FROM admin_users WHERE username = $1', ['admin']);
-      if (adminCheck.rows.length > 0) {
-        console.log('👤 Admin user found - ready for login!');
+      if (tableCheck.length > 0) {
+        console.log('✅ Teams table exists');
+        
+        // Get team count
+        const teamCount = await sql`SELECT COUNT(*) as count FROM teams`;
+        console.log('📊 Teams in database:', teamCount[0]?.count);
       } else {
-        console.log('⚠️ No admin user found - make sure to run the full schema with sample data');
+        console.log('⚠️ Teams table does not exist - you may need to run the schema');
+        
+        // Check what tables do exist
+        console.log('🔍 Checking existing tables...');
+        const allTables = await sql`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public'
+          ORDER BY table_name
+        `;
+        
+        console.log('📋 Existing tables:', allTables.map(t => t.table_name).join(', ') || 'None');
       }
+    } catch (tableError) {
+      console.log('⚠️ Could not check teams table:', tableError.message);
     }
-
-    client.release();
-    console.log('🎉 Database test completed successfully!');
     
+    return true;
   } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
+    console.error('❌ Connection failed:', error.message);
     
-    if (error.code === 'ENOTFOUND') {
-      console.log('💡 This usually means the database host is unreachable');
-    } else if (error.code === 'ECONNREFUSED') {
-      console.log('💡 This usually means the database is not accepting connections');
-    } else if (error.message.includes('password') || error.message.includes('authentication')) {
-      console.log('💡 This usually means incorrect credentials');
-    } else if (error.message.includes('database') && error.message.includes('does not exist')) {
-      console.log('💡 The database does not exist - check your Neon project');
+    // Provide helpful debugging info
+    if (error.message.includes('password authentication failed')) {
+      console.log('💡 Hint: Check your DATABASE_URL password');
+    } else if (error.message.includes('does not exist')) {
+      console.log('💡 Hint: Check your DATABASE_URL database name');
+    } else if (error.message.includes('connection')) {
+      console.log('💡 Hint: Check your network connection and DATABASE_URL host');
     }
     
-    console.log('\n🔧 Troubleshooting:');
-    console.log('1. Verify your Neon database is running');
-    console.log('2. Check the connection string is correct');
-    console.log('3. Ensure your IP is allowlisted (Neon allows all by default)');
-    console.log('4. Try connecting via Neon Dashboard first');
-  } finally {
-    await pool.end();
+    return false;
   }
 }
 
-testConnection();
+// Run the test
+testNeonConnection()
+  .then(success => {
+    if (success) {
+      console.log('🎉 Database connection test completed successfully!');
+      process.exit(0);
+    } else {
+      console.log('💥 Database connection test failed!');
+      process.exit(1);
+    }
+  })
+  .catch(error => {
+    console.error('💥 Unexpected error:', error);
+    process.exit(1);
+  });
