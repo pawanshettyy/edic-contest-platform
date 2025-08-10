@@ -1,5 +1,20 @@
 // Production database setup for Vercel deployment
-const { neon } = require('@neondatabase/serverless');
+import { neon } from '@neondatabase/serverless';
+import { readFileSync } from 'fs';
+
+// Load environment variables from .env.production file
+const envFile = readFileSync('.env.production', 'utf8');
+const envVars = {};
+envFile.split('\n').forEach(line => {
+  const [key, ...valueParts] = line.split('=');
+  if (key && key.trim() && !key.trim().startsWith('#')) {
+    const value = valueParts.join('=').replace(/^["']|["']$/g, ''); // Remove quotes
+    envVars[key.trim()] = value.trim();
+  }
+});
+
+// Set environment variables
+Object.assign(process.env, envVars);
 
 async function setupProductionDatabase() {
   console.log('🚀 Setting up production database for Vercel...');
@@ -214,9 +229,7 @@ async function setupProductionDatabase() {
   }
 }
 
-// Only run if this script is called directly
-if (require.main === module) {
-  setupProductionDatabase().catch(console.error);
-}
+// Run the setup function
+setupProductionDatabase().catch(console.error);
 
-module.exports = { setupProductionDatabase };
+export { setupProductionDatabase };
