@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { query } from '@/lib/database';
+import { getSql } from '@/lib/database';
 
 // Validation schema for team signup
 const teamSignUpSchema = z.object({
@@ -29,10 +29,10 @@ export async function POST(request: NextRequest) {
     const validatedData = teamSignUpSchema.parse(body);
 
     // Check if team name already exists
-    const existingTeams = await query(
-      'SELECT id FROM teams WHERE team_name = $1',
-      [validatedData.teamName]
-    );
+    const sql = getSql();
+    const existingTeams = await sql`
+      SELECT id FROM teams WHERE team_name = ${validatedData.teamName}
+    ` as { id: string }[];
 
     if (existingTeams && existingTeams.length > 0) {
       return NextResponse.json(
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     ];
 
     // Insert team into database
-    const insertResult = await query(`
+    const insertResult = await sql`
       INSERT INTO teams (
         team_name, 
         team_code, 
@@ -71,27 +71,28 @@ export async function POST(request: NextRequest) {
         voting_score,
         offline_score,
         status
-      ) VALUES ($1, $2, $3, $4, $5, $6, 1, 0, 0, 0, 0, 'active')
+      ) VALUES (
+        ${validatedData.teamName},
+        ${teamCode},
+        ${hashedTeamPassword},
+        ${validatedData.leaderName},
+        ${validatedData.email},
+        ${JSON.stringify(teamMembers)},
+        1, 0, 0, 0, 0, 'active'
+      )
       RETURNING id, team_name, team_code, created_at
-    `, [
-      validatedData.teamName,
-      teamCode,
-      hashedTeamPassword,
-      validatedData.leaderName,
-      validatedData.email,
-      JSON.stringify(teamMembers)
-    ]);
+    ` as {
+      id: string;
+      team_name: string;
+      team_code: string;
+      created_at: string;
+    }[];
 
     if (!insertResult || insertResult.length === 0) {
       throw new Error('Failed to create team');
     }
 
-    const team = insertResult[0] as {
-      id: string;
-      team_name: string;
-      team_code: string;
-      created_at: string;
-    };
+    const team = insertResult[0];
 
     console.log('✅ Team created successfully:', {
       id: team.id,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { query } from '@/lib/database';
+import { getSql } from '@/lib/database';
 
 // Validation schema for team signin
 const teamSignInSchema = z.object({
@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
     const validatedData = teamSignInSchema.parse(body);
 
     // Find team in database
-    const teams = await query(
-      'SELECT * FROM teams WHERE team_name = $1 AND status = $2',
-      [validatedData.teamName, 'active']
-    );
+    const sql = getSql();
+    const teams = await sql`
+      SELECT * FROM teams 
+      WHERE team_name = ${validatedData.teamName} AND status = 'active'
+    ` as Team[];
 
     if (!teams || teams.length === 0) {
       console.log('❌ Team not found:', validatedData.teamName);
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const team = teams[0] as Team;
+    const team = teams[0];
     console.log('👥 Found team:', {
       id: team.id,
       name: team.team_name,
@@ -98,10 +99,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Update last activity
-    await query(
-      'UPDATE teams SET last_activity = NOW() WHERE id = $1',
-      [team.id]
-    );
+    await sql`
+      UPDATE teams SET last_activity = NOW() WHERE id = ${team.id}
+    `;
 
     // Create session token
     const sessionToken = jwt.sign(
