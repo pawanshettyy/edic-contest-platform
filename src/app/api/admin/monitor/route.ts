@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { query, isDatabaseConnected } from '@/lib/database';
+import { getSql, isDatabaseConnected } from '@/lib/database';
+
+// Type-safe database result wrapper
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DatabaseResult = Record<string, any>[];
 
 interface AdminTokenPayload {
   adminId: string;
@@ -34,10 +38,9 @@ interface DatabaseRecord {
   voting_score?: number;
   last_activity?: string;
   status?: string;
-}
-
-interface VotingSessionResult {
-  id: string;
+  submitted_at?: string;
+  points_earned?: number;
+  total_responses?: string;
 }
 
 async function verifyAdminSession(token: string) {
@@ -56,12 +59,12 @@ async function verifyAdminSession(token: string) {
   }
   
   try {
-    const sessions = await query(
-      `SELECT * FROM admin_sessions 
-       WHERE session_token = $1 AND expires_at > NOW()
-       LIMIT 1`,
-      [token]
-    );
+    const sql = getSql();
+    const sessions = await sql`
+      SELECT * FROM admin_sessions 
+      WHERE session_token = ${token} AND expires_at > NOW()
+      LIMIT 1
+    ` as DatabaseResult;
     
     if (!sessions || sessions.length === 0) {
       console.log('❌ No valid session found in database for token');
@@ -125,15 +128,16 @@ export async function GET(request: NextRequest) {
     
     try {
       // Get real-time statistics from PostgreSQL
+      const sql = getSql();
       const now = new Date();
       const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       // Get basic counts
-      const teamCountResult = await query('SELECT COUNT(*) as count FROM teams');
-      const userCountResult = await query('SELECT COUNT(*) as count FROM users');
+      const teamCountResult = await sql`SELECT COUNT(*) as count FROM teams` as DatabaseResult;
+      const userCountResult = await sql`SELECT COUNT(*) as count FROM users` as DatabaseResult;
       
       // Get active teams (teams with recent activity)
-      const activeTeamsResult = await query(`
+      const activeTeamsResult = await sql`
         SELECT 
           id,
           team_name,
@@ -144,20 +148,20 @@ export async function GET(request: NextRequest) {
           voting_score,
           status
         FROM teams
-        WHERE last_activity >= $1
+        WHERE last_activity >= ${oneDayAgo}
         ORDER BY last_activity DESC
         LIMIT 20
-      `, [oneDayAgo]);
+      ` as DatabaseResult;
       
       // Get contest configuration
-      const contestConfigResult = await query(`
+      const contestConfigResult = await sql`
         SELECT * FROM contest_config
         ORDER BY created_at DESC
         LIMIT 1
-      `);
+      ` as DatabaseResult;
       
       // Get recent admin actions
-      const recentAdminActionsResult = await query(`
+      const recentAdminActionsResult = await sql`
         SELECT 
           al.id,
           al.action,
@@ -167,48 +171,53 @@ export async function GET(request: NextRequest) {
           au.username
         FROM admin_logs al
         LEFT JOIN admin_users au ON al.admin_user_id = au.id
-        WHERE al.timestamp >= $1
+        WHERE al.timestamp >= ${oneDayAgo}
         ORDER BY al.timestamp DESC
         LIMIT 10
-      `, [oneDayAgo]);
+      ` as DatabaseResult;
 
-      // Get voting session status
-      const votingSessionResult = await query(`
-        SELECT phase, is_active, created_at
-        FROM voting_sessions 
-        WHERE is_active = true
-        ORDER BY created_at DESC
-        LIMIT 1
-      `);
+      // Get recent submissions instead of voting sessions (voting_sessions table may not exist)
+      const recentSubmissionsResult = await sql`
+        SELECT 
+          qr.id,
+          qr.submitted_at,
+          qr.points_earned,
+          t.team_name
+        FROM quiz_responses qr
+        LEFT JOIN teams t ON qr.team_id = t.id
+        WHERE qr.submitted_at >= ${oneDayAgo}
+        ORDER BY qr.submitted_at DESC
+        LIMIT 10
+      ` as DatabaseResult;
 
       // Get quiz completion stats
-      const quizStatsResult = await query(`
+      const quizStatsResult = await sql`
         SELECT 
-          COUNT(DISTINCT member_name) as completed_members,
           COUNT(DISTINCT team_id) as teams_with_submissions,
-          AVG(points_earned) as avg_score
+          AVG(points_earned) as avg_score,
+          COUNT(*) as total_responses
         FROM quiz_responses
-        WHERE created_at >= $1
-      `, [oneDayAgo]);
+        WHERE submitted_at >= ${oneDayAgo}
+      ` as DatabaseResult;
 
-      // Get submission activity
-      const submissionStatsResult = await query(`
+      // Get submission activity by hour
+      const submissionStatsResult = await sql`
         SELECT 
-          DATE_TRUNC('hour', created_at) as hour,
+          DATE_TRUNC('hour', submitted_at) as hour,
           COUNT(*) as submissions
         FROM quiz_responses
-        WHERE created_at >= $1
-        GROUP BY DATE_TRUNC('hour', created_at)
+        WHERE submitted_at >= ${oneDayAgo}
+        GROUP BY DATE_TRUNC('hour', submitted_at)
         ORDER BY hour DESC
-      `, [oneDayAgo]);
+      ` as DatabaseResult;
       
       const totalTeams = parseInt((teamCountResult[0] as DatabaseRecord)?.count || '0') || 0;
       const totalUsers = parseInt((userCountResult[0] as DatabaseRecord)?.count || '0') || 0;
       const activeTeams = activeTeamsResult || [];
       const contestConfig = (contestConfigResult[0] as DatabaseRecord) || null;
       const recentAdminActions = recentAdminActionsResult || [];
-      const votingSession = (votingSessionResult[0] as DatabaseRecord) || null;
-      const quizStats = (quizStatsResult[0] as DatabaseRecord) || { completed_members: '0', teams_with_submissions: '0', avg_score: '0' };
+      const recentSubmissions = recentSubmissionsResult || [];
+      const quizStats = (quizStatsResult[0] as DatabaseRecord) || { teams_with_submissions: '0', avg_score: '0', total_responses: '0' };
       const submissionStats = submissionStatsResult || [];
 
       return NextResponse.json({
@@ -216,16 +225,16 @@ export async function GET(request: NextRequest) {
           totalTeams,
           totalUsers,
           activeTeams: activeTeams.length,
-          contestActive: contestConfig?.contest_active || false,
-          votingActive: votingSession?.is_active || false,
-          votingPhase: votingSession?.phase || 'waiting'
+          contestActive: contestConfig?.contest_active || false
         },
         recentActivity: {
-          submissions: submissionStats.map((stat: unknown) => {
-            const record = stat as DatabaseRecord;
+          submissions: recentSubmissions.map((submission: unknown) => {
+            const record = submission as DatabaseRecord;
             return {
-              hour: record.hour,
-              count: parseInt(record.submissions || '0')
+              id: record.id,
+              submitted_at: record.submitted_at,
+              status: 'completed',
+              teams: { team_name: record.team_name || 'Unknown Team' }
             };
           }),
           adminActions: recentAdminActions.map((action: unknown) => {
@@ -233,10 +242,10 @@ export async function GET(request: NextRequest) {
             return {
               id: record.id,
               action: record.action,
-              targetType: record.target_type,
+              target_type: record.target_type,
               details: record.details,
               timestamp: record.timestamp,
-              adminUsername: record.username
+              admin_users: { username: record.username || 'Unknown Admin' }
             };
           })
         },
@@ -244,35 +253,28 @@ export async function GET(request: NextRequest) {
           const record = team as DatabaseRecord;
           return {
             id: record.id,
-            teamName: record.team_name,
-            currentRound: record.current_round,
-            totalScore: record.total_score || 0,
-            quizScore: record.quiz_score || 0,
-            votingScore: record.voting_score || 0,
-            lastActivity: record.last_activity,
-            status: record.status
+            team_name: record.team_name,
+            current_round: record.current_round,
+            total_score: record.total_score || 0,
+            last_activity: record.last_activity
           };
         }),
         submissionStats: submissionStats.map((stat: unknown) => {
           const record = stat as DatabaseRecord;
           return {
-            time: record.hour,
-            submissions: parseInt(record.submissions || '0')
+            period: record.hour,
+            count: parseInt(record.submissions || '0')
           };
         }),
-        performanceMetrics: {
-          completedMembers: parseInt(quizStats.completed_members || '0') || 0,
-          teamsWithSubmissions: parseInt(quizStats.teams_with_submissions || '0') || 0,
-          averageQuizScore: parseFloat(quizStats.avg_score || '0') || 0
-        },
+        performanceMetrics: [{
+          team_id: 'aggregate',
+          average_solve_time: 0,
+          success_rate: parseFloat(quizStats.avg_score || '0') || 0,
+          teams: { team_name: 'Overall Performance' }
+        }],
         systemStatus: {
           databaseConnected: true,
           contestConfig,
-          votingSession: votingSession ? {
-            phase: votingSession.phase,
-            isActive: votingSession.is_active,
-            createdAt: votingSession.created_at
-          } : null,
           lastUpdated: new Date().toISOString()
         }
       });
@@ -329,24 +331,25 @@ export async function POST(request: NextRequest) {
       case 'emergency_stop':
         // Since Neon doesn't support traditional transactions, use regular queries
         try {
+          const sql = getSql();
+          
           // Emergency stop contest
-          await query(`
+          await sql`
             UPDATE contest_config 
             SET contest_active = false, updated_at = NOW()
-            WHERE id = 1
-          `);
+          `;
           
           // Log the action
-          await query(`
+          await sql`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
-            VALUES ($1, $2, $3, $4, $5)
-          `, [
-            admin.adminId,
-            'emergency_stop',
-            'contest',
-            JSON.stringify({ reason: data?.reason || 'Emergency stop initiated' }),
-            request.headers.get('x-forwarded-for') || 'unknown'
-          ]);
+            VALUES (
+              ${admin.adminId},
+              ${'emergency_stop'},
+              ${'contest'},
+              ${JSON.stringify({ reason: data?.reason || 'Emergency stop initiated' })},
+              ${request.headers.get('x-forwarded-for') || 'unknown'}
+            )
+          `;
           
           return NextResponse.json({ success: true, message: 'Contest stopped' });
         } catch (error) {
@@ -357,29 +360,28 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        return NextResponse.json({ message: 'Contest stopped successfully' });
-        
       case 'restart_contest':
         // Since Neon doesn't support traditional transactions, use regular queries
         try {
+          const sql = getSql();
+          
           // Restart contest
-          await query(`
+          await sql`
             UPDATE contest_config 
             SET contest_active = true, updated_at = NOW()
-            WHERE id = 1
-          `);
+          `;
           
           // Log the action
-          await query(`
+          await sql`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
-            VALUES ($1, $2, $3, $4, $5)
-          `, [
-            admin.adminId,
-            'restart_contest',
-            'contest',
-            JSON.stringify({ reason: data?.reason || 'Contest restarted' }),
-            request.headers.get('x-forwarded-for') || 'unknown'
-          ]);
+            VALUES (
+              ${admin.adminId},
+              ${'restart_contest'},
+              ${'contest'},
+              ${JSON.stringify({ reason: data?.reason || 'Contest restarted' })},
+              ${request.headers.get('x-forwarded-for') || 'unknown'}
+            )
+          `;
           
           return NextResponse.json({ success: true, message: 'Contest restarted' });
         } catch (error) {
@@ -391,35 +393,23 @@ export async function POST(request: NextRequest) {
         }
 
       case 'start_voting':
-        // Since Neon doesn't support traditional transactions, use regular queries
+        // Note: This may fail if voting_sessions table doesn't exist yet
         try {
-          // Create or activate voting session
-          await query(`
-            UPDATE voting_sessions SET is_active = false WHERE is_active = true
-          `);
+          const sql = getSql();
           
-          const result = await query<VotingSessionResult>(`
-            INSERT INTO voting_sessions (
-              round_id, phase, phase_start_time, phase_end_time,
-              pitch_duration, voting_duration, is_active
-            )
-            VALUES ($1, $2, NOW(), NOW(), $3, $4, $5)
-            RETURNING id
-          `, ['round2', 'waiting', 90, 30, true]);
-          
-          // Log the action
-          await query(`
+          // Create admin log entry instead of voting session for now
+          await sql`
             INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
-            VALUES ($1, $2, $3, $4, $5)
-          `, [
-            admin.adminId,
-            'start_voting',
-            'voting_session',
-            JSON.stringify({ sessionId: result[0]?.id || 'unknown' }),
-            request.headers.get('x-forwarded-for') || 'unknown'
-          ]);
+            VALUES (
+              ${admin.adminId},
+              ${'start_voting'},
+              ${'voting_session'},
+              ${JSON.stringify({ note: 'Voting start requested - feature pending' })},
+              ${request.headers.get('x-forwarded-for') || 'unknown'}
+            )
+          `;
           
-          return NextResponse.json({ success: true, message: 'Voting session started' });
+          return NextResponse.json({ success: true, message: 'Voting session logged (feature pending)' });
         } catch (error) {
           console.error('Start voting failed:', error);
           return NextResponse.json(
@@ -430,18 +420,28 @@ export async function POST(request: NextRequest) {
         
       case 'clear_cache':
         // Log cache clear action
-        await query(`
-          INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
-          VALUES ($1, $2, $3, $4, $5)
-        `, [
-          admin.adminId,
-          'clear_cache',
-          'system',
-          JSON.stringify({ cache_type: data?.cacheType || 'all' }),
-          request.headers.get('x-forwarded-for') || 'unknown'
-        ]);
-        
-        return NextResponse.json({ message: 'Cache cleared successfully' });
+        try {
+          const sql = getSql();
+          
+          await sql`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address)
+            VALUES (
+              ${admin.adminId},
+              ${'clear_cache'},
+              ${'system'},
+              ${JSON.stringify({ cache_type: data?.cacheType || 'all' })},
+              ${request.headers.get('x-forwarded-for') || 'unknown'}
+            )
+          `;
+          
+          return NextResponse.json({ message: 'Cache cleared successfully' });
+        } catch (error) {
+          console.error('Clear cache failed:', error);
+          return NextResponse.json(
+            { success: false, error: 'Failed to clear cache' },
+            { status: 500 }
+          );
+        }
         
       default:
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
