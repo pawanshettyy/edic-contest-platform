@@ -107,107 +107,40 @@ export default function TeamManagementPage() {
     try {
       setLoading(true);
       
-      // Use mock data directly - bypassing API call for now
-      // TODO: Replace with real API call when backend is ready
-      // const response = await fetch('/api/admin/teams', { credentials: 'include' });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock data for demonstration
-      const mockTeams: Team[] = [
-        {
-          id: 'team1',
-          name: 'Tech Innovators',
-          leader: { id: 'user1', name: 'Alice Johnson', email: 'alice@example.com', isLeader: true },
-          members: [
-            { id: 'user1', name: 'Alice Johnson', email: 'alice@example.com', isLeader: true },
-            { id: 'user2', name: 'Bob Smith', email: 'bob@example.com', isLeader: false },
-            { id: 'user3', name: 'Carol Davis', email: 'carol@example.com', isLeader: false },
-            { id: 'user4', name: 'David Wilson', email: 'david@example.com', isLeader: false },
-            { id: 'user5', name: 'Eva Brown', email: 'eva@example.com', isLeader: false }
-          ],
-          createdAt: '2025-01-15T10:30:00Z',
-          totalScore: 285,
-          currentRound: 2,
-          status: 'active',
-          lastActivity: '2025-01-20T14:22:00Z',
-          quizScore: 120,
-          votingScore: 85,
-          offlineScore: 80
-        },
-        {
-          id: 'team2',
-          name: 'Digital Pioneers',
-          leader: { id: 'user6', name: 'Frank Miller', email: 'frank@example.com', isLeader: true },
-          members: [
-            { id: 'user6', name: 'Frank Miller', email: 'frank@example.com', isLeader: true },
-            { id: 'user7', name: 'Grace Lee', email: 'grace@example.com', isLeader: false },
-            { id: 'user8', name: 'Henry Clark', email: 'henry@example.com', isLeader: false },
-            { id: 'user9', name: 'Ivy Martinez', email: 'ivy@example.com', isLeader: false },
-            { id: 'user10', name: 'Jack Thompson', email: 'jack@example.com', isLeader: false }
-          ],
-          createdAt: '2025-01-16T09:15:00Z',
-          totalScore: 267,
-          currentRound: 2,
-          status: 'active',
-          lastActivity: '2025-01-20T13:45:00Z',
-          quizScore: 110,
-          votingScore: 92,
-          offlineScore: 65
-        },
-        {
-          id: 'team3',
-          name: 'Future Builders',
-          leader: { id: 'user11', name: 'Kate Anderson', email: 'kate@example.com', isLeader: true },
-          members: [
-            { id: 'user11', name: 'Kate Anderson', email: 'kate@example.com', isLeader: true },
-            { id: 'user12', name: 'Liam Garcia', email: 'liam@example.com', isLeader: false },
-            { id: 'user13', name: 'Mia Rodriguez', email: 'mia@example.com', isLeader: false },
-            { id: 'user14', name: 'Noah Taylor', email: 'noah@example.com', isLeader: false },
-            { id: 'user15', name: 'Olivia White', email: 'olivia@example.com', isLeader: false }
-          ],
-          createdAt: '2025-01-14T16:20:00Z',
-          totalScore: 245,
-          currentRound: 2,
-          status: 'active',
-          lastActivity: '2025-01-20T12:10:00Z',
-          quizScore: 95,
-          votingScore: 78,
-          offlineScore: 72
-        },
-        {
-          id: 'team4',
-          name: 'Code Warriors',
-          leader: { id: 'user16', name: 'Paul Johnson', email: 'paul@example.com', isLeader: true },
-          members: [
-            { id: 'user16', name: 'Paul Johnson', email: 'paul@example.com', isLeader: true },
-            { id: 'user17', name: 'Quinn Davis', email: 'quinn@example.com', isLeader: false },
-            { id: 'user18', name: 'Ruby Wilson', email: 'ruby@example.com', isLeader: false },
-            { id: 'user19', name: 'Sam Brown', email: 'sam@example.com', isLeader: false },
-            { id: 'user20', name: 'Tina Green', email: 'tina@example.com', isLeader: false }
-          ],
-          createdAt: '2025-01-17T11:45:00Z',
-          totalScore: 198,
-          currentRound: 1,
-          status: 'inactive',
-          lastActivity: '2025-01-19T16:30:00Z',
-          quizScore: 88,
-          votingScore: 60,
-          offlineScore: 50
+      // Fetch teams data from API
+      const response = await fetch('/api/admin/teams', { 
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
         }
-      ];
-
-      const mockStats: TeamStats = {
-        totalTeams: mockTeams.length,
-        activeTeams: mockTeams.filter(t => t.status === 'active').length,
-        disqualifiedTeams: mockTeams.filter(t => t.status === 'disqualified').length,
-        averageScore: Math.round(mockTeams.reduce((sum, team) => sum + team.totalScore, 0) / mockTeams.length),
-        topScore: Math.max(...mockTeams.map(team => team.totalScore))
-      };
-
-      setTeams(mockTeams);
-      setStats(mockStats);
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.teams) {
+        setTeams(data.teams);
+        setStats(data.stats || {
+          totalTeams: data.teams.length,
+          activeTeams: data.teams.filter((t: Team) => t.status === 'active').length,
+          disqualifiedTeams: data.teams.filter((t: Team) => t.status === 'disqualified').length,
+          averageScore: data.teams.length > 0 ? Math.round(data.teams.reduce((sum: number, team: Team) => sum + team.totalScore, 0) / data.teams.length) : 0,
+          topScore: data.teams.length > 0 ? Math.max(...data.teams.map((team: Team) => team.totalScore)) : 0
+        });
+      } else {
+        console.error('Failed to fetch teams data:', data);
+        setTeams([]);
+        setStats({
+          totalTeams: 0,
+          activeTeams: 0,
+          disqualifiedTeams: 0,
+          averageScore: 0,
+          topScore: 0
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load teams data');
     } finally {

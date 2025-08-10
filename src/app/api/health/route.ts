@@ -1,39 +1,62 @@
 import { NextResponse } from 'next/server';
-import { healthCheck } from '@/lib/database';
+import { neon } from '@neondatabase/serverless';
+
+// Health check function using Neon's serverless driver
+async function healthCheck() {
+  try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    const sql = neon(process.env.DATABASE_URL as string);
+    const result = await sql`SELECT 1 as test, NOW() as timestamp`;
+    return {
+      healthy: result.length > 0,
+      timestamp: result[0]?.timestamp,
+      error: null
+    };
+  } catch (error) {
+    const errorMessage = typeof error === 'object' && error !== null && 'message' in error ? (error as { message: string }).message : String(error);
+    console.error('Database health check failed:', errorMessage);
+    return {
+      healthy: false,
+      timestamp: null,
+      error: errorMessage
+    };
+  }
+}
 
 export async function GET() {
+  let dbHealth: { healthy: boolean; timestamp: string | null; error: string | null } = { healthy: false, timestamp: null, error: 'Unknown error' };
+  
   try {
-    const dbHealthy = await healthCheck();
-    
-    const health = {
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      services: {
-        database: dbHealthy ? 'healthy' : 'unhealthy',
-        api: 'healthy',
-      },
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV,
-    };
-
-    const status = dbHealthy ? 200 : 503;
-
-    return NextResponse.json(health, { status });
-    
+    dbHealth = await healthCheck();
   } catch (error) {
     console.error('Health check error:', error);
-    
-    return NextResponse.json(
-      {
-        status: 'error',
-        timestamp: new Date().toISOString(),
-        error: 'Health check failed',
-        services: {
-          database: 'unhealthy',
-          api: 'unhealthy',
-        },
-      },
-      { status: 503 }
-    );
+    dbHealth = {
+      healthy: false,
+      timestamp: null,
+      error: typeof error === 'object' && error !== null && 'message' in error ? (error as { message: string }).message : String(error)
+    };
   }
+  
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: dbHealth.healthy ? 'healthy' : 'unhealthy',
+      api: 'healthy',
+    },
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV,
+    details: {
+      database: {
+        connected: dbHealth.healthy,
+        serverTime: dbHealth.timestamp,
+        ...(dbHealth.error && { error: dbHealth.error })
+      }
+    }
+  };
+
+  const status = dbHealth.healthy ? 200 : 503;
+  return NextResponse.json(health, { status });
 }

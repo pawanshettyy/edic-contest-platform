@@ -85,30 +85,6 @@ async function verifyAdminSession(token: string) {
   }
 }
 
-// Fallback data for when database is not available
-function getMockAdminData() {
-  return {
-    overview: {
-      totalUsers: 0,
-      totalTeams: 0,
-      activeTeams: 0,
-      contestActive: false
-    },
-    recentActivity: {
-      submissions: [],
-      adminActions: []
-    },
-    activeTeams: [],
-    submissionStats: [],
-    performanceMetrics: [],
-    systemStatus: {
-      databaseConnected: false,
-      contestConfig: null,
-      lastUpdated: new Date().toISOString()
-    }
-  };
-}
-
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('admin-token')?.value;
@@ -121,9 +97,26 @@ export async function GET(request: NextRequest) {
     
     // Check if database is available before attempting queries
     if (!isDatabaseConnected()) {
-      console.log('🔧 Using fallback mock data for admin dashboard');
-      const mockData = getMockAdminData();
-      return NextResponse.json(mockData);
+      return NextResponse.json({
+        success: false,
+        error: 'Database not available - please ensure database is set up',
+        stats: {
+          totalTeams: 0,
+          activeTeams: 0,
+          completedTeams: 0,
+          averageScore: 0,
+          currentRound: 'Setup Required',
+          systemStatus: 'error'
+        },
+        teams: [],
+        systemMetrics: {
+          serverUptime: '0:00:00',
+          memoryUsage: 0,
+          cpuUsage: 0,
+          activeConnections: 0,
+          responseTime: 0
+        }
+      });
     }
     
     try {
@@ -282,10 +275,26 @@ export async function GET(request: NextRequest) {
       
     } catch (dbError) {
       console.error('Database error in admin monitor:', dbError);
-      console.log('🔧 Using fallback mock data for admin dashboard');
-      
-      // Return fallback data when database is not available
-      return NextResponse.json(getMockAdminData());
+      return NextResponse.json({
+        success: false,
+        error: 'Database connection failed',
+        stats: {
+          totalTeams: 0,
+          activeTeams: 0,
+          completedTeams: 0,
+          averageScore: 0,
+          currentRound: 'Error',
+          systemStatus: 'error'
+        },
+        teams: [],
+        systemMetrics: {
+          serverUptime: '0:00:00',
+          memoryUsage: 0,
+          cpuUsage: 0,
+          activeConnections: 0,
+          responseTime: 0
+        }
+      });
     }
     
   } catch (error) {
