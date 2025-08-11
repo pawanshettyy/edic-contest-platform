@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthLayout } from './AuthLayout';
 import { SimpleButton } from '@/components/ui/simple-button';
@@ -10,30 +10,18 @@ import { SimpleCard, SimpleCardContent } from '@/components/ui/SimpleCard';
 import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
 import { useAuth } from '@/context/AuthContext';
 import { SignUpFormData } from '@/types/auth';
-import { Eye, EyeOff, Users, User, Mail, Lock, Shield, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Users, User, Mail, Shield } from 'lucide-react';
 import Link from 'next/link';
-
-interface RegistrationStatus {
-  registrationOpen: boolean;
-  registrationDeadline?: string;
-  contestActive?: boolean;
-  message: string;
-}
 
 export const SignUpForm: React.FC = () => {
   const router = useRouter();
   const { signUp, isLoading } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
   const [showTeamPassword, setShowTeamPassword] = useState(false);
   const [error, setError] = useState('');
-  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
-  const [loadingStatus, setLoadingStatus] = useState(true);
 
   const [formData, setFormData] = useState<SignUpFormData>({
     leaderName: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     teamName: '',
     member1Name: '',
     member2Name: '',
@@ -42,27 +30,6 @@ export const SignUpForm: React.FC = () => {
     teamPassword: '',
     confirmTeamPassword: '',
   });
-
-  // Check registration status on component mount
-  useEffect(() => {
-    const checkRegistrationStatus = async () => {
-      try {
-        const response = await fetch('/api/registration/status');
-        const data = await response.json();
-        setRegistrationStatus(data);
-      } catch (error) {
-        console.error('Error checking registration status:', error);
-        setRegistrationStatus({
-          registrationOpen: false,
-          message: 'Error checking registration status'
-        });
-      } finally {
-        setLoadingStatus(false);
-      }
-    };
-
-    checkRegistrationStatus();
-  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -77,14 +44,6 @@ export const SignUpForm: React.FC = () => {
     }
     if (!formData.email.trim() || !/\S+@\S+\.\S+/.test(formData.email)) {
       setError('Valid email is required');
-      return false;
-    }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return false;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
       return false;
     }
     if (!formData.teamName.trim()) {
@@ -128,39 +87,6 @@ export const SignUpForm: React.FC = () => {
       title="Create Team Account"
       subtitle="Register your team for the contest"
     >
-      {loadingStatus ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Checking registration status...</span>
-        </div>
-      ) : !registrationStatus?.registrationOpen ? (
-        <SimpleCard className="border-red-200 dark:border-red-800">
-          <SimpleCardContent className="p-6 text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-red-600 mb-2">Registration Closed</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {registrationStatus?.message || 'Team registration is currently closed.'}
-            </p>
-            {registrationStatus?.registrationDeadline && (
-              <p className="text-sm text-gray-500">
-                Registration deadline: {new Date(registrationStatus.registrationDeadline).toLocaleString()}
-              </p>
-            )}
-            <div className="mt-6">
-              <Link href="/auth/signin">
-                <SimpleButton variant="outline" className="mr-4">
-                  Sign In Instead
-                </SimpleButton>
-              </Link>
-              <Link href="/">
-                <SimpleButton>
-                  Back to Home
-                </SimpleButton>
-              </Link>
-            </div>
-          </SimpleCardContent>
-        </SimpleCard>
-      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <SimpleAlert variant="destructive">
@@ -201,47 +127,6 @@ export const SignUpForm: React.FC = () => {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Enter your email"
-                    className="pl-10"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="password">Password *</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Create password (min 6 chars)"
-                    className="pl-10 pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="confirmPassword">Confirm Password *</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    placeholder="Confirm your password"
                     className="pl-10"
                     required
                   />
@@ -400,7 +285,6 @@ export const SignUpForm: React.FC = () => {
           </p>
         </div>
       </form>
-      )}
     </AuthLayout>
   );
 };

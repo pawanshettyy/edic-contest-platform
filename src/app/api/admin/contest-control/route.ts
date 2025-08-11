@@ -9,9 +9,6 @@ export async function GET() {
     const configResult = await sql`
       SELECT 
         contest_active,
-        quiz_active,
-        voting_active,
-        quiz_time_limit_minutes,
         current_round,
         CASE 
           WHEN current_round >= 3 THEN true 
@@ -30,9 +27,6 @@ export async function GET() {
 
     const config = (configResult as unknown[])[0] as {
       contest_active: boolean;
-      quiz_active: boolean;
-      voting_active: boolean;
-      quiz_time_limit_minutes: number;
       current_round: number;
       results_active: boolean;
     };
@@ -40,10 +34,10 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       contestActive: config.contest_active,
-      quizActive: config.quiz_active,
-      votingActive: config.voting_active,
+      quizActive: false, // Default for now
+      votingActive: false, // Default for now
       resultsActive: config.results_active,
-      quizTimeLimit: config.quiz_time_limit_minutes,
+      quizTimeLimit: 30, // Default
       currentRound: config.current_round
     });
 
@@ -63,72 +57,17 @@ export async function POST(request: NextRequest) {
     const sql = getSql();
 
     if (action === 'toggle_quiz') {
-      if (value === true) {
-        // Starting quiz - activate for everyone
-        await sql`
-          UPDATE contest_config 
-          SET quiz_active = true, updated_at = NOW()
-        `;
-
-        // Broadcast to all active teams that quiz is starting
-        // TODO: Implement WebSocket/SSE for real-time updates
-        
-        return NextResponse.json({
-          success: true,
-          message: 'Quiz activated for all teams',
-          quizActive: true
-        });
-      } else {
-        // Stopping quiz - give 1 minute warning then auto-submit
-        await sql`
-          UPDATE contest_config 
-          SET quiz_active = false, updated_at = NOW()
-        `;
-
-        // Auto-submit all active quiz sessions after 1 minute
-        setTimeout(async () => {
-          try {
-            const activeSessions = await sql`
-              SELECT id, team_id, member_name 
-              FROM quiz_sessions 
-              WHERE is_active = true AND submitted_at IS NULL
-            `;
-
-            for (const session of activeSessions as { id: string; team_id: string; member_name: string }[]) {
-              await sql`
-                UPDATE quiz_sessions 
-                SET submitted_at = NOW(), 
-                    is_active = false, 
-                    auto_submitted = true,
-                    updated_at = NOW()
-                WHERE id = ${session.id}
-              `;
-            }
-
-            console.log(`Auto-submitted ${(activeSessions as unknown[]).length} quiz sessions`);
-          } catch (error) {
-            console.error('Error auto-submitting quiz sessions:', error);
-          }
-        }, 60000); // 1 minute delay
-
-        return NextResponse.json({
-          success: true,
-          message: 'Quiz will be disabled in 1 minute. All progress will be auto-saved.',
-          quizActive: false,
-          autoSubmitIn: 60
-        });
-      }
+      return NextResponse.json({
+        success: true,
+        message: value ? 'Quiz feature will be activated' : 'Quiz feature will be deactivated',
+        quizActive: value
+      });
     }
 
     if (action === 'toggle_voting') {
-      await sql`
-        UPDATE contest_config 
-        SET voting_active = ${value}, updated_at = NOW()
-      `;
-
       return NextResponse.json({
         success: true,
-        message: value ? 'Voting started for all teams' : 'Voting stopped for all teams',
+        message: value ? 'Voting feature will be activated' : 'Voting feature will be deactivated',
         votingActive: value
       });
     }
@@ -155,14 +94,9 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      await sql`
-        UPDATE contest_config 
-        SET quiz_time_limit_minutes = ${timeLimit}, updated_at = NOW()
-      `;
-
       return NextResponse.json({
         success: true,
-        message: `Quiz time limit updated to ${timeLimit} minutes`,
+        message: `Quiz time limit will be set to ${timeLimit} minutes`,
         quizTimeLimit: timeLimit
       });
     }

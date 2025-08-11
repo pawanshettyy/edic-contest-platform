@@ -84,14 +84,6 @@ export function validateSignUpData(data: SignUpFormData): string[] {
     errors.push('Valid email is required');
   }
 
-  if (!data.password || data.password.length < 6) {
-    errors.push('Password must be at least 6 characters');
-  }
-
-  if (data.password !== data.confirmPassword) {
-    errors.push('Passwords do not match');
-  }
-
   if (!data.teamName.trim()) {
     errors.push('Team name is required');
   }

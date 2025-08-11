@@ -7,7 +7,6 @@ import { getSql } from '@/lib/database';
 const teamSignUpSchema = z.object({
   leaderName: z.string().min(1, 'Leader name is required'),
   email: z.string().email('Valid email is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
   teamName: z.string().min(1, 'Team name is required'),
   member1Name: z.string().min(1, 'Member 2 name is required'),
   member2Name: z.string().min(1, 'Member 3 name is required'),

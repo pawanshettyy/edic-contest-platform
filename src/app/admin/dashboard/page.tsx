@@ -311,7 +311,7 @@ export default function AdminDashboard() {
             </SimpleCard>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <SimpleCard className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Results Control</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -361,19 +361,6 @@ export default function AdminDashboard() {
                   onClick={() => router.push('/admin/config')}
                 >
                   Configure Contest
-                </SimpleButton>
-              </SimpleCard>
-
-              <SimpleCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Monitor</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  View system logs, errors, and basic platform statistics.
-                </p>
-                <SimpleButton 
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => router.push('/admin/monitoring')}
-                >
-                  View Logs
                 </SimpleButton>
               </SimpleCard>
             </div>

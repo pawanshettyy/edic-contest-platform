@@ -13,7 +13,6 @@ import {
   Search, 
   Edit, 
   Trash2, 
-  Plus, 
   Award, 
   AlertTriangle,
   Eye,
@@ -63,16 +62,9 @@ export default function TeamManagementPage() {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showOfflineScoreModal, setShowOfflineScoreModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [offlineScoreInput, setOfflineScoreInput] = useState('');
-  const [newTeamData, setNewTeamData] = useState({
-    name: '',
-    leaderName: '',
-    leaderEmail: '',
-    memberNames: ['', '', '', ''] // For 4 additional members
-  });
 
   const { admin, loading: contextLoading } = useAdmin();
   const router = useRouter();
@@ -150,112 +142,73 @@ export default function TeamManagementPage() {
     }
   };
 
-  const handleCreateTeam = async () => {
-    try {
-      setActionLoading(true);
-      
-      // Validate form data
-      if (!newTeamData.name.trim() || !newTeamData.leaderName.trim() || !newTeamData.leaderEmail.trim()) {
-        setError('Team name, leader name, and leader email are required');
-        return;
-      }
-
-      // Create new team object
-      const newTeam: Team = {
-        id: `team${Date.now()}`,
-        name: newTeamData.name.trim(),
-        leader: {
-          id: `user${Date.now()}`,
-          name: newTeamData.leaderName.trim(),
-          email: newTeamData.leaderEmail.trim(),
-          isLeader: true
-        },
-        members: [
-          {
-            id: `user${Date.now()}`,
-            name: newTeamData.leaderName.trim(),
-            email: newTeamData.leaderEmail.trim(),
-            isLeader: true
-          },
-          ...newTeamData.memberNames
-            .filter(name => name.trim() !== '')
-            .map((name, index) => ({
-              id: `user${Date.now() + index + 1}`,
-              name: name.trim(),
-              email: `${name.trim().toLowerCase().replace(/\s+/g, '.')}@example.com`,
-              isLeader: false
-            }))
-        ],
-        createdAt: new Date().toISOString(),
-        totalScore: 0,
-        currentRound: 1,
-        status: 'active',
-        lastActivity: new Date().toISOString(),
-        quizScore: 0,
-        votingScore: 0,
-        offlineScore: 0
-      };
-
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Add to teams list
-      const updatedTeams = [...teams, newTeam];
-      setTeams(updatedTeams);
-      
-      // Update stats
-      if (stats) {
-        setStats({
-          ...stats,
-          totalTeams: stats.totalTeams + 1,
-          activeTeams: stats.activeTeams + 1
-        });
-      }
-      
-      // Reset form and close modal
-      setNewTeamData({
-        name: '',
-        leaderName: '',
-        leaderEmail: '',
-        memberNames: ['', '', '', '']
-      });
-      setShowCreateModal(false);
-      setError('');
-      
-    } catch {
-      setError('Failed to create team');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const updateNewTeamMember = (index: number, value: string) => {
-    const updatedMembers = [...newTeamData.memberNames];
-    updatedMembers[index] = value;
-    setNewTeamData({ ...newTeamData, memberNames: updatedMembers });
-  };
-
   const handleTeamAction = async (teamId: string, action: 'activate' | 'deactivate' | 'disqualify' | 'delete') => {
     try {
       setActionLoading(true);
       
-      // Mock API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
       if (action === 'delete') {
-        setTeams(teams.filter(team => team.id !== teamId));
+        // Make actual API call to delete team
+        const response = await fetch(`/api/admin/teams?id=${teamId}`, {
+          method: 'DELETE',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Update local state to remove the team
+          setTeams(teams.filter(team => team.id !== teamId));
+          // Refresh teams data to ensure consistency
+          fetchTeamsData();
+        } else {
+          throw new Error(data.error || 'Failed to delete team');
+        }
       } else {
-        setTeams(teams.map(team => 
-          team.id === teamId 
-            ? { ...team, status: action === 'activate' ? 'active' : action === 'deactivate' ? 'inactive' : 'disqualified' }
-            : team
-        ));
+        // For other actions, make API call to update team status
+        const response = await fetch('/api/admin/teams', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            action: action === 'activate' ? 'activate' : action === 'deactivate' ? 'deactivate' : 'disqualify',
+            teamId: teamId
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Update local state
+          setTeams(teams.map(team => 
+            team.id === teamId 
+              ? { ...team, status: action === 'activate' ? 'active' : action === 'deactivate' ? 'inactive' : 'disqualified' }
+              : team
+          ));
+          // Refresh teams data to ensure consistency
+          fetchTeamsData();
+        } else {
+          throw new Error(data.error || 'Failed to perform action');
+        }
       }
       
       setShowTeamModal(false);
       setSelectedTeam(null);
-    } catch {
-      setError('Failed to perform action');
+    } catch (error) {
+      console.error('Team action error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to perform action');
     } finally {
       setActionLoading(false);
     }
@@ -362,13 +315,6 @@ export default function TeamManagementPage() {
                 Team Management
               </h1>
             </div>
-            <SimpleButton 
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Team
-            </SimpleButton>
           </div>
         </div>
       </header>
@@ -678,134 +624,6 @@ export default function TeamManagementPage() {
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete Team
-                  </SimpleButton>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Team Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Create New Team</h2>
-                <SimpleButton
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setNewTeamData({
-                      name: '',
-                      leaderName: '',
-                      leaderEmail: '',
-                      memberNames: ['', '', '', '']
-                    });
-                    setError('');
-                  }}
-                  variant="outline"
-                  size="sm"
-                >
-                  Cancel
-                </SimpleButton>
-              </div>
-              
-              <div className="space-y-6">
-                {/* Team Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Team Information</h3>
-                  
-                  <div>
-                    <Label htmlFor="teamName">Team Name *</Label>
-                    <Input
-                      id="teamName"
-                      value={newTeamData.name}
-                      onChange={(e) => setNewTeamData({ ...newTeamData, name: e.target.value })}
-                      placeholder="Enter team name..."
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-
-                {/* Team Leader */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Team Leader</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="leaderName">Leader Name *</Label>
-                      <Input
-                        id="leaderName"
-                        value={newTeamData.leaderName}
-                        onChange={(e) => setNewTeamData({ ...newTeamData, leaderName: e.target.value })}
-                        placeholder="Enter leader name..."
-                        className="mt-1"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="leaderEmail">Leader Email *</Label>
-                      <Input
-                        id="leaderEmail"
-                        type="email"
-                        value={newTeamData.leaderEmail}
-                        onChange={(e) => setNewTeamData({ ...newTeamData, leaderEmail: e.target.value })}
-                        placeholder="Enter leader email..."
-                        className="mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Team Members */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Team Members (Optional)
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Add up to 4 additional team members. Leave blank if not needed.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {newTeamData.memberNames.map((memberName, index) => (
-                      <div key={index}>
-                        <Label htmlFor={`member${index + 1}`}>Member {index + 1}</Label>
-                        <Input
-                          id={`member${index + 1}`}
-                          value={memberName}
-                          onChange={(e) => updateNewTeamMember(index, e.target.value)}
-                          placeholder={`Enter member ${index + 1} name...`}
-                          className="mt-1"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <SimpleButton
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setNewTeamData({
-                        name: '',
-                        leaderName: '',
-                        leaderEmail: '',
-                        memberNames: ['', '', '', '']
-                      });
-                      setError('');
-                    }}
-                    variant="outline"
-                  >
-                    Cancel
-                  </SimpleButton>
-                  <SimpleButton
-                    onClick={handleCreateTeam}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                    disabled={actionLoading || !newTeamData.name.trim() || !newTeamData.leaderName.trim() || !newTeamData.leaderEmail.trim()}
-                  >
-                    {actionLoading ? 'Creating...' : 'Create Team'}
                   </SimpleButton>
                 </div>
               </div>

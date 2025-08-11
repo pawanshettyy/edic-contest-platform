@@ -16,8 +16,6 @@ export interface Team {
 export interface SignUpFormData {
   leaderName: string;
   email: string;
-  password: string;
-  confirmPassword: string;
   teamName: string;
   member1Name: string;
   member2Name: string;
