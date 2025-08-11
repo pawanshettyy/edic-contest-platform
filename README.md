@@ -308,15 +308,6 @@ npm run setup:production
 
 ## 🔐 Security
 
-### Production Security Checklist
-
-- [ ] Change default admin passwords
-- [ ] Use HTTPS in production
-- [ ] Set secure JWT secret (32+ characters)
-- [ ] Enable CORS protection
-- [ ] Regular security updates
-- [ ] Monitor admin activity logs
-
 ### Security Features
 
 - **Password Hashing**: bcrypt with salt rounds
@@ -325,22 +316,11 @@ npm run setup:production
 - **XSS Prevention**: Input sanitization
 - **CSRF Protection**: SameSite cookies
 
-## 📈 Monitoring
-
-### Built-in Analytics
-
-- Real-time team participation
-- Quiz completion rates
-- Voting engagement metrics
-- Admin activity tracking
-
 ### Health Checks
 
 - Database connectivity monitoring
 - API endpoint health checks
 - System performance metrics
-
-## 🤝 Contributing
 
 ### Development Setup
 
