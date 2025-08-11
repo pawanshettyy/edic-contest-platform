@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
         email: currentMember.email || '',
         teamId: team.id,
         teamName: team.team_name,
-        isLeader: decoded.isLeader || false
+        isLeader: currentMember.isLeader || false // Use current member data from database, not JWT
       },
       team: {
         id: team.id,

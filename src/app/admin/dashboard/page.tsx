@@ -313,22 +313,22 @@ export default function AdminDashboard() {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <SimpleCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contest Control</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Results Control</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Real-time control of quiz and voting sessions for all teams.
+                  Activate results publication and control contest rounds.
                 </p>
                 <SimpleButton 
                   className="w-full bg-red-600 hover:bg-red-700 text-white"
                   onClick={() => router.push('/admin/control')}
                 >
-                  Control Panel
+                  Control Results
                 </SimpleButton>
               </SimpleCard>
 
               <SimpleCard className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Team Management</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  View and manage all registered teams, update scores, and handle penalties.
+                  View and manage all registered teams, update offline scores.
                 </p>
                 <SimpleButton 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white"
@@ -365,15 +365,15 @@ export default function AdminDashboard() {
               </SimpleCard>
 
               <SimpleCard className="p-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Real-time Monitoring</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Monitor</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Monitor live submissions, team progress, and system performance.
+                  View system logs, errors, and basic platform statistics.
                 </p>
                 <SimpleButton 
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white"
                   onClick={() => router.push('/admin/monitoring')}
                 >
-                  Live Monitor
+                  View Logs
                 </SimpleButton>
               </SimpleCard>
             </div>

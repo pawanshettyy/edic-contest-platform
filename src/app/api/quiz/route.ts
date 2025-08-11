@@ -76,6 +76,9 @@ export async function GET(request: NextRequest) {
     
     // Fetch active quiz questions with options
     const sql = getSql();
+    
+    console.log('Fetching quiz questions...');
+    
     const questionsData = await sql`
       SELECT 
         q.id,
@@ -102,6 +105,17 @@ export async function GET(request: NextRequest) {
       ORDER BY RANDOM()
       LIMIT 20
     ` as DatabaseResult;
+
+    console.log('Questions fetched:', questionsData.length);
+
+    if (questionsData.length === 0) {
+      console.log('No questions found, returning error');
+      return NextResponse.json({
+        success: false,
+        error: 'No quiz questions available. Please contact administrator.',
+        debug: 'No active questions found in database'
+      });
+    }
 
     const questions = questionsData.map((q: unknown) => {
       const question = q as DatabaseQuestion;

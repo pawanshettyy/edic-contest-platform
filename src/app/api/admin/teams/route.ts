@@ -104,10 +104,10 @@ export async function GET(request: NextRequest) {
           COUNT(*) as total_teams,
           COUNT(*) FILTER (WHERE status = 'active') as active_teams,
           COUNT(*) FILTER (WHERE is_disqualified = true) as disqualified_teams,
-        ROUND(AVG(total_score), 2) as average_score,
-        MAX(total_score) as highest_score
-      FROM teams
-    `;
+          ROUND(AVG(total_score), 2) as average_score,
+          MAX(total_score) as highest_score
+        FROM teams
+      `;
 
       const stats = (statsResult as TeamStats[])[0] || {
         total_teams: '0',
@@ -196,6 +196,27 @@ export async function POST(request: NextRequest) {
           await sql`
             UPDATE teams SET total_score = ${value}, updated_at = NOW() WHERE id = ${teamId}
           `;
+          break;
+
+        case 'update_offline_score':
+          if (typeof value !== 'number') {
+            return NextResponse.json({ error: 'Offline score value required' }, { status: 400 });
+          }
+          
+          try {
+            const sql = getSql();
+            await sql`
+              UPDATE teams SET offline_score = ${value}, updated_at = NOW() WHERE id = ${teamId}
+            `;
+            
+            // Recalculate total score
+            await sql`
+              UPDATE teams SET total_score = COALESCE(quiz_score, 0) + COALESCE(voting_score, 0) + COALESCE(offline_score, 0) WHERE id = ${teamId}
+            `;
+          } catch (error) {
+            console.error('Error updating offline score:', error);
+            return NextResponse.json({ error: 'Failed to update offline score' }, { status: 500 });
+          }
           break;
           
         case 'add_penalty':

@@ -64,7 +64,9 @@ export default function TeamManagementPage() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showOfflineScoreModal, setShowOfflineScoreModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [offlineScoreInput, setOfflineScoreInput] = useState('');
   const [newTeamData, setNewTeamData] = useState({
     name: '',
     leaderName: '',
@@ -121,17 +123,17 @@ export default function TeamManagementPage() {
       
       const data = await response.json();
       
-      if (data.success && data.teams) {
-        setTeams(data.teams);
-        setStats(data.stats || {
-          totalTeams: data.teams.length,
-          activeTeams: data.teams.filter((t: Team) => t.status === 'active').length,
-          disqualifiedTeams: data.teams.filter((t: Team) => t.status === 'disqualified').length,
-          averageScore: data.teams.length > 0 ? Math.round(data.teams.reduce((sum: number, team: Team) => sum + team.totalScore, 0) / data.teams.length) : 0,
-          topScore: data.teams.length > 0 ? Math.max(...data.teams.map((team: Team) => team.totalScore)) : 0
+      if (data.success && data.data) {
+        setTeams(data.data.teams || []);
+        setStats(data.data.stats || {
+          totalTeams: data.data.teams?.length || 0,
+          activeTeams: data.data.teams?.filter((t: Team) => t.status === 'active').length || 0,
+          disqualifiedTeams: data.data.teams?.filter((t: Team) => t.status === 'disqualified').length || 0,
+          averageScore: data.data.teams?.length > 0 ? Math.round(data.data.teams.reduce((sum: number, team: Team) => sum + team.totalScore, 0) / data.data.teams.length) : 0,
+          topScore: data.data.teams?.length > 0 ? Math.max(...data.data.teams.map((team: Team) => team.totalScore)) : 0
         });
       } else {
-        console.error('Failed to fetch teams data:', data);
+        console.error('Failed to fetch teams data:', data.error || 'Unknown error');
         setTeams([]);
         setStats({
           totalTeams: 0,
@@ -257,6 +259,53 @@ export default function TeamManagementPage() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleOfflineScoreUpdate = async (teamId: string, newScore: number) => {
+    try {
+      setActionLoading(true);
+      
+      const response = await fetch('/api/admin/teams', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'update_offline_score',
+          teamId: teamId,
+          value: newScore
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update offline score');
+      }
+
+      // Update the team in the local state
+      setTeams(teams.map(team => 
+        team.id === teamId 
+          ? { ...team, offlineScore: newScore, totalScore: (team.quizScore || 0) + (team.votingScore || 0) + newScore }
+          : team
+      ));
+      
+      setShowOfflineScoreModal(false);
+      setSelectedTeam(null);
+      setOfflineScoreInput('');
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update offline score');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openOfflineScoreModal = (team: Team) => {
+    setSelectedTeam(team);
+    setOfflineScoreInput(team.offlineScore?.toString() || '0');
+    setShowOfflineScoreModal(true);
   };
 
   const formatDate = (dateString: string) => {
@@ -479,6 +528,14 @@ export default function TeamManagementPage() {
                             }}
                           >
                             <Eye className="h-3 w-3" />
+                          </SimpleButton>
+                          <SimpleButton
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openOfflineScoreModal(team)}
+                            title="Edit Offline Score"
+                          >
+                            <Award className="h-3 w-3" />
                           </SimpleButton>
                           <SimpleButton
                             size="sm"
@@ -751,6 +808,101 @@ export default function TeamManagementPage() {
                     {actionLoading ? 'Creating...' : 'Create Team'}
                   </SimpleButton>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Offline Score Modal */}
+      {showOfflineScoreModal && selectedTeam && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Edit Offline Score
+                </h2>
+                <SimpleButton
+                  onClick={() => {
+                    setShowOfflineScoreModal(false);
+                    setSelectedTeam(null);
+                    setOfflineScoreInput('');
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  ×
+                </SimpleButton>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="teamName">Team</Label>
+                  <div className="mt-1 p-2 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+                    {selectedTeam.name}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="currentScores">Current Scores</Label>
+                  <div className="mt-1 p-2 border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900 text-sm text-gray-600 dark:text-gray-400">
+                    <div>Quiz Score: {selectedTeam.quizScore || 0}</div>
+                    <div>Voting Score: {selectedTeam.votingScore || 0}</div>
+                    <div>Offline Score: {selectedTeam.offlineScore || 0}</div>
+                    <div className="font-semibold mt-1 text-gray-900 dark:text-white">
+                      Total Score: {selectedTeam.totalScore || 0}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="offlineScore">New Offline Score</Label>
+                  <Input
+                    id="offlineScore"
+                    type="number"
+                    value={offlineScoreInput}
+                    onChange={(e) => setOfflineScoreInput(e.target.value)}
+                    placeholder="Enter offline score"
+                    className="mt-1"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+
+                {error && (
+                  <SimpleAlert variant="destructive">
+                    <SimpleAlertDescription>{error}</SimpleAlertDescription>
+                  </SimpleAlert>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+                <SimpleButton
+                  onClick={() => {
+                    setShowOfflineScoreModal(false);
+                    setSelectedTeam(null);
+                    setOfflineScoreInput('');
+                    setError('');
+                  }}
+                  variant="outline"
+                >
+                  Cancel
+                </SimpleButton>
+                <SimpleButton
+                  onClick={() => {
+                    const score = parseInt(offlineScoreInput);
+                    if (!isNaN(score) && score >= 0) {
+                      handleOfflineScoreUpdate(selectedTeam.id, score);
+                    } else {
+                      setError('Please enter a valid score (0 or greater)');
+                    }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={actionLoading || !offlineScoreInput.trim()}
+                >
+                  {actionLoading ? 'Updating...' : 'Update Score'}
+                </SimpleButton>
               </div>
             </div>
           </div>

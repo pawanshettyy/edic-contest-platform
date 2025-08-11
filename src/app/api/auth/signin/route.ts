@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Parse team members
     const members = team.members || [];
-    console.log('👤 Team members:', members.map(m => m.name));
+    console.log('👤 Team members:', members.map(m => ({ name: m.name, isLeader: m.isLeader })));
 
     // Find the member in the team
     const member = members.find(m => 
@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     if (!member) {
       console.log('❌ Member not found in team:', validatedData.memberName);
+      console.log('Available members:', members.map(m => m.name));
       return NextResponse.json(
         { error: 'Member not found in this team' },
         { status: 404 }
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Member found:', {
       name: member.name,
-      isLeader: member.isLeader
+      isLeader: member.isLeader,
+      hasIsLeaderProperty: 'isLeader' in member
     });
 
     // Update last activity
