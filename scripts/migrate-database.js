@@ -9,10 +9,14 @@
  * Usage: npm run migrate:production
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const { URL } = require('url');
+import https from 'https';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 console.log('🔧 EDIC Contest Platform - Database Migration');
 console.log('=============================================');
@@ -259,10 +263,10 @@ async function runMigrations() {
 }
 
 // Run migrations
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   runMigrations().then(success => {
     process.exit(success ? 0 : 1);
   });
 }
 
-module.exports = { runMigrations, MIGRATIONS };
+export { runMigrations, MIGRATIONS };

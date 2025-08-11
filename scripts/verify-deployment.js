@@ -9,8 +9,12 @@
  * Usage: npm run verify:deployment
  */
 
-const https = require('https');
-const { URL } = require('url');
+import https from 'https';
+import http from 'http';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 // Configuration
 const PRODUCTION_URL = process.env.VERCEL_URL 
@@ -45,7 +49,7 @@ async function makeRequest(url, method = 'GET', data = null, headers = {}) {
       options.headers['Content-Length'] = Buffer.byteLength(postData);
     }
 
-    const protocol = urlObj.protocol === 'https:' ? https : require('http');
+    const protocol = urlObj.protocol === 'https:' ? https : http;
     const req = protocol.request(options, (res) => {
       let responseData = '';
       
@@ -230,10 +234,10 @@ async function verifyDeployment() {
 }
 
 // Run the verification
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   verifyDeployment().then(success => {
     process.exit(success ? 0 : 1);
   });
 }
 
-module.exports = { verifyDeployment };
+export { verifyDeployment };

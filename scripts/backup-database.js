@@ -9,10 +9,14 @@
  * Usage: npm run backup:database
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const { URL } = require('url');
+import https from 'https';
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 // Configuration
 const PRODUCTION_URL = process.env.VERCEL_URL 
@@ -46,7 +50,7 @@ async function makeRequest(url, method = 'GET', headers = {}) {
       }
     };
 
-    const protocol = urlObj.protocol === 'https:' ? https : require('http');
+    const protocol = urlObj.protocol === 'https:' ? https : http;
     const req = protocol.request(options, (res) => {
       let responseData = '';
       
@@ -176,10 +180,10 @@ async function backupDatabase() {
 }
 
 // Run the backup
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   backupDatabase().then(success => {
     process.exit(success ? 0 : 1);
   });
 }
 
-module.exports = { backupDatabase };
+export { backupDatabase };

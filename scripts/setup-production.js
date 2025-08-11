@@ -13,9 +13,13 @@
  * 4. Verifies the setup
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables from .env.production if it exists
 const envFile = path.join(process.cwd(), '.env.production');
@@ -257,11 +261,11 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Run the script
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   main().catch((error) => {
     console.error('❌ Setup failed:', error);
     process.exit(1);
   });
 }
 
-module.exports = { main, setupAdminUser, verifyDatabase, setupConfiguration };
+export { main, setupAdminUser, verifyDatabase, setupConfiguration };
