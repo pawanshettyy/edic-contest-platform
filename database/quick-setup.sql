@@ -68,62 +68,69 @@ ON CONFLICT (username) DO UPDATE SET
 
 SELECT 'Quick setup completed! Admin user created.' as status;
 
--- Insert sample questions for the four categories
+-- Insert sample questions for the four categories (Capital, Marketing, Strategy, Team Building)
 INSERT INTO quiz_questions (question, category, is_active) VALUES
 -- Capital questions
-('What is the primary purpose of raising capital for a startup?', 'Capital', true),
-('Which of the following is considered equity financing?', 'Capital', true),
-('What does ROI stand for in financial terms?', 'Capital', true),
-('Which funding stage typically comes after seed funding?', 'Capital', true),
+('Your startup needs $500K to scale operations. What financing option gives you the most control?', 'Capital', true),
+('A potential investor wants 25% equity for $1M investment. Your startup is valued at:', 'Capital', true),
+('What is the primary advantage of bootstrapping over external funding?', 'Capital', true),
+('Which metric is most important when presenting to venture capitalists?', 'Capital', true),
+('Your runway shows 8 months left. What should be your immediate priority?', 'Capital', true),
 
--- Marketing questions
-('What is the most important metric for measuring marketing success?', 'Marketing', true),
-('Which marketing strategy focuses on creating valuable content?', 'Marketing', true),
-('What does CAC stand for in marketing?', 'Marketing', true),
-('Which social media platform is best for B2B marketing?', 'Marketing', true),
+-- Marketing questions  
+('Your CAC is $100 and LTV is $250. What does this indicate?', 'Marketing', true),
+('Which marketing channel typically has the lowest customer acquisition cost for B2B startups?', 'Marketing', true),
+('Your conversion rate from trial to paid is 2%. Industry average is 15%. What should you focus on?', 'Marketing', true),
+('A competitor launched a similar product. What is your best marketing response?', 'Marketing', true),
+('Your organic reach dropped 60%. What is the most cost-effective solution?', 'Marketing', true),
 
 -- Strategy questions
-('What is the primary focus of a blue ocean strategy?', 'Strategy', true),
-('Which framework is used for competitive analysis?', 'Strategy', true),
-('What does SWOT analysis help identify?', 'Strategy', true),
-('Which growth strategy involves entering new markets?', 'Strategy', true),
+('Your main competitor just raised $50M. What should be your strategic response?', 'Strategy', true),
+('Market research shows demand in Asia. Your product needs localization. What do you do?', 'Strategy', true),
+('Revenue growth stalled at $2M ARR. What strategic pivot should you consider?', 'Strategy', true),
+('A large corporation wants to acquire you for 3x revenue. What factors should you consider?', 'Strategy', true),
+('Your product serves both B2B and B2C markets. Which strategic focus is better?', 'Strategy', true),
 
 -- Team Building questions
-('What is the most important quality in a team leader?', 'Team Building', true),
-('Which team development stage involves the most conflict?', 'Team Building', true),
-('What is the ideal team size for maximum productivity?', 'Team Building', true),
-('Which communication style is most effective for team collaboration?', 'Team Building', true);
+('Your co-founder wants to quit after 2 years. How do you handle their equity?', 'Team Building', true),
+('Remote team productivity dropped 30%. What is your first action?', 'Team Building', true),
+('Two key developers are leaving for better pay. What is your best retention strategy?', 'Team Building', true),
+('Your team doubled in 6 months but communication is breaking down. What structure do you implement?', 'Team Building', true),
+('A star performer is demotivating others with their attitude. How do you handle this?', 'Team Building', true);
 
 -- Insert sample options for all questions
 DO $$
 DECLARE
     q_record RECORD;
-    option_categories TEXT[] := ARRAY['Capital', 'Marketing', 'Strategy', 'Team Building'];
     capital_options TEXT[][] := ARRAY[
-        ['To pay salaries', 'To grow the business', 'To buy office space', 'To pay taxes'],
-        ['Bank loan', 'Venture capital', 'Credit card', 'Personal savings'],
-        ['Return on Investment', 'Rate of Interest', 'Revenue of Income', 'Risk of Investment'],
-        ['Series A', 'IPO', 'Merger', 'Acquisition']
+        ['Debt financing', 'Self-funding/bootstrapping', 'Venture capital', 'Crowdfunding'],
+        ['$2 million', '$4 million', '$6 million', '$8 million'],
+        ['Faster growth', 'Full ownership retention', 'Better credibility', 'Access to networks'],
+        ['Team size', 'Market size and growth', 'Office location', 'Product features'],
+        ['Reduce expenses', 'Start fundraising immediately', 'Pivot business model', 'Hire more sales people']
     ];
     marketing_options TEXT[][] := ARRAY[
-        ['Cost per click', 'Customer acquisition cost', 'Return on investment', 'Brand awareness'],
-        ['Content marketing', 'Cold calling', 'Print advertising', 'Radio ads'],
-        ['Customer Acquisition Cost', 'Customer Attention Cycle', 'Creative Ad Campaign', 'Customer Analysis Center'],
-        ['LinkedIn', 'TikTok', 'Instagram', 'Snapchat']
+        ['Excellent unit economics', 'Poor unit economics', 'Need more data', 'Unsustainable model'],
+        ['Social media ads', 'Content marketing', 'Cold outreach', 'Trade shows'],
+        ['Product features', 'Onboarding experience', 'Pricing strategy', 'Customer support'],
+        ['Lower your prices', 'Differentiate your positioning', 'Copy their features', 'Increase ad spend'],
+        ['Buy more ads', 'Improve SEO/content', 'Hire influencers', 'Switch platforms']
     ];
     strategy_options TEXT[][] := ARRAY[
-        ['Creating uncontested market space', 'Competing on price', 'Following competitors', 'Reducing costs'],
-        ['SWOT Analysis', 'Porter Five Forces', 'PEST Analysis', 'All of the above'],
-        ['Strengths, weaknesses, opportunities, threats', 'Sales, wages, operations, targets', 'Systems, workflow, objectives, tactics', 'Structure, workforce, organization, technology'],
-        ['Market penetration', 'Market development', 'Product development', 'Diversification']
+        ['Raise more money', 'Focus on profitability', 'Compete directly', 'Find new market niche'],
+        ['Enter immediately', 'Test with pilot program', 'Wait for more resources', 'Partner with local company'],
+        ['Expand to new markets', 'Improve current product', 'Reduce costs', 'Change business model'],
+        ['Accept immediately', 'Negotiate higher price', 'Decline and continue', 'Ask for strategic partnership'],
+        ['Focus on B2B only', 'Focus on B2C only', 'Serve both equally', 'Create separate products']
     ];
     team_options TEXT[][] := ARRAY[
-        ['Technical skills', 'Communication', 'Experience', 'Education'],
-        ['Forming', 'Storming', 'Norming', 'Performing'],
-        ['5-7 people', '10-12 people', '15-20 people', '2-3 people'],
-        ['Assertive', 'Passive', 'Aggressive', 'Collaborative']
+        ['Buyback at fair value', 'Keep their equity', 'Give equity to team', 'Negotiate vesting acceleration'],
+        ['Implement daily standups', 'Organize team building', 'Review remote work policies', 'Hire project managers'],
+        ['Match competitor offers', 'Offer equity compensation', 'Improve work environment', 'All of the above'],
+        ['Flat hierarchy', 'Team leads for each function', 'External consultants', 'More meetings'],
+        ['Immediate termination', 'Performance improvement plan', 'Direct conversation', 'Team mediation']
     ];
-    correct_answers INTEGER[] := ARRAY[2, 2, 1, 1, 3, 1, 1, 1, 1, 4, 1, 2, 2, 2, 1, 4];
+    correct_answers INTEGER[] := ARRAY[2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 4, 2, 2, 3, 1, 1, 2, 4, 2, 3];
     question_index INTEGER := 1;
     category_index INTEGER;
     option_index INTEGER;
@@ -142,16 +149,16 @@ BEGIN
         -- Determine which set of options to use
         CASE q_record.category
             WHEN 'Capital' THEN 
-                category_index := ((question_index - 1) % 4) + 1;
+                category_index := ((question_index - 1) % 5) + 1;
                 current_options := capital_options[category_index];
             WHEN 'Marketing' THEN 
-                category_index := ((question_index - 5) % 4) + 1;
+                category_index := ((question_index - 6) % 5) + 1;
                 current_options := marketing_options[category_index];
             WHEN 'Strategy' THEN 
-                category_index := ((question_index - 9) % 4) + 1;
+                category_index := ((question_index - 11) % 5) + 1;
                 current_options := strategy_options[category_index];
             WHEN 'Team Building' THEN 
-                category_index := ((question_index - 13) % 4) + 1;
+                category_index := ((question_index - 16) % 5) + 1;
                 current_options := team_options[category_index];
         END CASE;
 
@@ -176,4 +183,4 @@ BEGIN
     END LOOP;
 END $$;
 
-SELECT 'Sample questions and options created for all four categories!' as status;
+SELECT 'Sample questions and options created for Capital, Marketing, Strategy, and Team Building categories!' as status;

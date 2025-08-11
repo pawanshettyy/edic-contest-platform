@@ -1,7 +1,8 @@
 -- Migration: Initial Schema
--- Version: 1.0.0
--- Description: Create all required tables for the contest platform
+-- Version: 2.0.0
+-- Description: Create all required tables for the contest platform (Updated - no time limits)
 -- Created: 2025-08-11T04:18:45.668Z
+-- Updated: 2025-08-11 - Removed time_limit columns, added contest control fields
 
 -- Create admin_users table
       CREATE TABLE IF NOT EXISTS admin_users (
