@@ -13,8 +13,6 @@ interface QuizOption {
 interface QuizQuestion {
   id?: string;
   question: string;
-  question_type: string;
-  explanation: string;
   is_active: boolean;
   options: QuizOption[];
 }
@@ -22,8 +20,6 @@ interface QuizQuestion {
 interface DatabaseQuestion {
   id: string;
   question: string;
-  question_type: string;
-  explanation: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -47,8 +43,7 @@ export async function GET(): Promise<NextResponse> {
     // Fetch all questions
     const questionsResult = await sql`
       SELECT 
-        id, question, question_type, difficulty, 
-        time_limit, explanation, is_active, created_at, updated_at
+        id, question, is_active, created_at, updated_at
       FROM quiz_questions 
       ORDER BY created_at DESC
     `;
@@ -137,9 +132,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Insert question
       const questionResult = await sql`
         INSERT INTO quiz_questions (
-          question, question_type, 
-          explanation, is_active
-        ) VALUES (${data.question.trim()}, ${data.question_type}, ${data.explanation?.trim() || ''}, ${data.is_active})
+          question, is_active
+        ) VALUES (${data.question.trim()}, ${data.is_active})
         RETURNING id
       `;
 
@@ -223,8 +217,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
       // Update question
       await sql`
         UPDATE quiz_questions 
-        SET question = ${data.question.trim()}, question_type = ${data.question_type}, 
-            explanation = ${data.explanation?.trim() || ''}, 
+        SET question = ${data.question.trim()}, 
             is_active = ${data.is_active}, updated_at = NOW()
         WHERE id = ${questionId}
       `;

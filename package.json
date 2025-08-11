@@ -10,13 +10,19 @@
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "test": "echo \"No tests specified\"",
+    "setup:env": "node scripts/setup-env.js",
     "setup:production": "node scripts/setup-production.js",
     "setup:development": "node scripts/setup-development.js",
+    "migrate:production": "node scripts/migrate-database.js",
+    "backup:database": "node scripts/backup-database.js",
     "verify:deployment": "node scripts/verify-deployment.js",
+    "production:init": "node scripts/production-init.js",
+    "deploy:check": "npm run type-check && npm run build && npm run verify:deployment",
     "postinstall": "npm run type-check",
     "vercel-build": "npm run build",
     "deploy": "vercel --prod",
-    "preview": "vercel"
+    "deploy:preview": "vercel",
+    "logs:production": "vercel logs --app=edic-contest-platform"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

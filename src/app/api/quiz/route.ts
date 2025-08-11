@@ -16,11 +16,8 @@ interface ApproachScores {
 interface DatabaseQuestion {
   id: string;
   question: string;
-  type: string;
-  difficulty: string;
   category: string;
   time_limit: number;
-  explanation: string;
   is_active: boolean;
   options: Record<string, unknown>[];
 }
@@ -84,11 +81,8 @@ export async function GET(request: NextRequest) {
       SELECT 
         q.id,
         q.question,
-        q.question_type as type,
-        q.difficulty,
         q.category,
         q.time_limit,
-        q.explanation,
         q.is_active,
         json_agg(
           json_build_object(
@@ -108,8 +102,7 @@ export async function GET(request: NextRequest) {
       FROM quiz_questions q
       LEFT JOIN quiz_options o ON q.id = o.question_id
       WHERE q.is_active = true
-      GROUP BY q.id, q.question, q.question_type, q.difficulty, 
-               q.category, q.time_limit, q.explanation, q.is_active
+      GROUP BY q.id, q.question, q.category, q.time_limit, q.is_active
       ORDER BY RANDOM()
       LIMIT 15
     ` as DatabaseResult;
@@ -119,11 +112,9 @@ export async function GET(request: NextRequest) {
       return {
         id: question.id,
         question: question.question,
-        type: question.type,
-        difficulty: question.difficulty,
+        type: 'multiple_choice', // All questions are MCQ now
         category: question.category,
         timeLimit: question.time_limit,
-        explanation: question.explanation,
         options: question.options || [],
         orderIndex: Math.floor(Math.random() * 1000)
       };

@@ -28,13 +28,6 @@ export const CONTEST_PHASES = {
   CANCELLED: 'cancelled',
 } as const;
 
-// Question types
-export const QUESTION_TYPES = {
-  MULTIPLE_CHOICE: 'multiple_choice',
-  TRUE_FALSE: 'true_false',
-  SHORT_ANSWER: 'short_answer',
-} as const;
-
 // Scoring system
 export const SCORING = {
   CORRECT_ANSWER: 10,

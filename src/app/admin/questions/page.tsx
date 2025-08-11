@@ -15,11 +15,8 @@ interface QuizOption {
 interface QuizQuestion {
   id?: string;
   question: string;
-  question_type: string;
-  difficulty: string;
   category: string;
   time_limit: number;
-  explanation: string;
   is_active: boolean;
   options: QuizOption[];
 }
@@ -34,11 +31,8 @@ export default function AdminQuestionsPage() {
 
   const [formData, setFormData] = useState<QuizQuestion>({
     question: '',
-    question_type: 'mcq',
-    difficulty: 'medium',
-    category: 'General',
+    category: 'Capital',
     time_limit: 45,
-    explanation: '',
     is_active: true,
     options: [
       { option_text: '', points: 0, is_correct: false, option_order: 1 },
@@ -49,15 +43,7 @@ export default function AdminQuestionsPage() {
   });
 
   const categories = [
-    'General', 'Business Strategy', 'Marketing', 'Finance', 'Technology', 
-    'Leadership', 'Innovation', 'Entrepreneurship', 'Operations'
-  ];
-
-  const difficulties = ['easy', 'medium', 'hard'];
-  const questionTypes = [
-    { value: 'mcq', label: 'Multiple Choice (Single Answer)' },
-    { value: 'multiple-select', label: 'Multiple Choice (Multiple Answers)' },
-    { value: 'true-false', label: 'True/False' }
+    'Capital', 'Marketing', 'Strategy', 'Team Building'
   ];
 
   useEffect(() => {
@@ -82,11 +68,8 @@ export default function AdminQuestionsPage() {
   const resetForm = () => {
     setFormData({
       question: '',
-      question_type: 'mcq',
-      difficulty: 'medium',
-      category: 'General',
+      category: 'Capital',
       time_limit: 45,
-      explanation: '',
       is_active: true,
       options: [
         { option_text: '', points: 0, is_correct: false, option_order: 1 },
@@ -265,33 +248,7 @@ export default function AdminQuestionsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Question Type</label>
-                <select
-                  value={formData.question_type}
-                  onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  {questionTypes.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Difficulty</label>
-                <select
-                  value={formData.difficulty}
-                  onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                  className="w-full border rounded px-3 py-2"
-                >
-                  {difficulties.map(diff => (
-                    <option key={diff} value={diff}>{diff.charAt(0).toUpperCase() + diff.slice(1)}</option>
-                  ))}
-                </select>
-              </div>
-
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Category</label>
                 <select
@@ -330,16 +287,6 @@ export default function AdminQuestionsPage() {
                 />
                 <label htmlFor="is_active" className="text-sm font-medium">Active in Quiz</label>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Explanation</label>
-              <textarea
-                value={formData.explanation}
-                onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                className="w-full border rounded px-3 py-2 h-20"
-                placeholder="Explanation for the correct answer (optional)..."
-              />
             </div>
 
             <div>
@@ -429,8 +376,7 @@ export default function AdminQuestionsPage() {
                   <div className="flex-1">
                     <h3 className="font-medium text-lg">{question.question}</h3>
                     <div className="flex gap-4 text-sm text-gray-600 mt-1">
-                      <span>Type: {question.question_type}</span>
-                      <span>Difficulty: {question.difficulty}</span>
+                      <span>Type: MCQ</span>
                       <span>Category: {question.category}</span>
                       <span>Time: {question.time_limit}s</span>
                       <span className={question.is_active ? 'text-green-600' : 'text-red-600'}>
@@ -473,12 +419,6 @@ export default function AdminQuestionsPage() {
                     </div>
                   ))}
                 </div>
-                
-                {question.explanation && (
-                  <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
-                    <strong>Explanation:</strong> {question.explanation}
-                  </div>
-                )}
               </div>
             ))}
           </div>

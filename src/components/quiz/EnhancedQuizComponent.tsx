@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SimpleCard, SimpleCardContent, SimpleCardDescription, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
 import { Badge } from '@/components/ui/badge';
-import { Clock, CheckCircle, XCircle, Trophy, AlertTriangle, Users, Maximize, Minimize, Home, ArrowLeft, ArrowRight, Save } from 'lucide-react';
+import { Clock, CheckCircle, Trophy, Users, Maximize, Minimize, Home, ArrowLeft, ArrowRight, Save } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -19,7 +19,6 @@ interface QuizQuestion {
   type: string;
   options: QuizOption[];
   timeLimit: number;
-  difficulty: 'easy' | 'medium' | 'hard';
   orderIndex: number;
 }
 
@@ -363,15 +362,6 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
       return () => clearInterval(timer);
     }
   }, [quizStarted, quizCompleted, totalTimeRemaining, completeQuiz]);
-
-  const getDifficultyIcon = (difficulty: string) => {
-    switch (difficulty) {
-      case 'easy': return <CheckCircle className="h-4 w-4" />;
-      case 'medium': return <AlertTriangle className="h-4 w-4" />;
-      case 'hard': return <XCircle className="h-4 w-4" />;
-      default: return null;
-    }
-  };
 
   // Helper functions
   const formatTime = (seconds: number): string => {
@@ -785,8 +775,8 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
           <SimpleCardHeader>
             <div className="flex items-center justify-between mb-4">
               <Badge variant="outline" className="flex items-center gap-2">
-                {getDifficultyIcon(currentQuestion.difficulty)}
-                {currentQuestion.difficulty.toUpperCase()}
+                <CheckCircle className="h-4 w-4" />
+                MCQ
               </Badge>
               {!isFullscreen && (
                 <div className="flex items-center gap-4">
