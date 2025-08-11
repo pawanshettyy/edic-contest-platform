@@ -12,7 +12,11 @@ export async function GET() {
         quiz_active,
         voting_active,
         quiz_time_limit_minutes,
-        current_round
+        current_round,
+        CASE 
+          WHEN current_round >= 3 THEN true 
+          ELSE false 
+        END as results_active
       FROM contest_config 
       LIMIT 1
     `;
@@ -30,6 +34,7 @@ export async function GET() {
       voting_active: boolean;
       quiz_time_limit_minutes: number;
       current_round: number;
+      results_active: boolean;
     };
 
     return NextResponse.json({
@@ -37,6 +42,7 @@ export async function GET() {
       contestActive: config.contest_active,
       quizActive: config.quiz_active,
       votingActive: config.voting_active,
+      resultsActive: config.results_active,
       quizTimeLimit: config.quiz_time_limit_minutes,
       currentRound: config.current_round
     });
@@ -124,6 +130,19 @@ export async function POST(request: NextRequest) {
         success: true,
         message: value ? 'Voting started for all teams' : 'Voting stopped for all teams',
         votingActive: value
+      });
+    }
+
+    if (action === 'toggle_results') {
+      await sql`
+        UPDATE contest_config 
+        SET current_round = ${value ? 3 : 2}, updated_at = NOW()
+      `;
+
+      return NextResponse.json({
+        success: true,
+        message: value ? 'Results published for all teams' : 'Results hidden from teams',
+        resultsActive: value
       });
     }
 

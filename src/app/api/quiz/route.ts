@@ -86,23 +86,21 @@ export async function GET(request: NextRequest) {
           json_build_object(
             'id', o.id,
             'text', o.option_text,
-            'points', o.points,
-            'is_correct', o.is_correct,
             'category', CASE 
-              WHEN o.option_order = 1 THEN 'capital'
-              WHEN o.option_order = 2 THEN 'marketing'
-              WHEN o.option_order = 3 THEN 'strategy'
-              WHEN o.option_order = 4 THEN 'team'
+              WHEN o.order_index = 1 THEN 'capital'
+              WHEN o.order_index = 2 THEN 'marketing'
+              WHEN o.order_index = 3 THEN 'strategy'
+              WHEN o.order_index = 4 THEN 'team'
               ELSE 'general'
             END
-          ) ORDER BY o.option_order
+          ) ORDER BY o.order_index
         ) as options
       FROM quiz_questions q
       LEFT JOIN quiz_options o ON q.id = o.question_id
-      WHERE q.is_active = true
+      WHERE q.is_active = true AND q.category IN ('Capital', 'Marketing', 'Strategy', 'Team Building')
       GROUP BY q.id, q.question, q.category, q.is_active
       ORDER BY RANDOM()
-      LIMIT 15
+      LIMIT 20
     ` as DatabaseResult;
 
     const questions = questionsData.map((q: unknown) => {
@@ -205,12 +203,12 @@ export async function POST(request: NextRequest) {
       for (const answer of answers) {
         // Get option details
         const optionResult = await sql`
-          SELECT o.points, o.is_correct,
+          SELECT o.is_correct,
                  CASE 
-                   WHEN o.option_order = 1 THEN 'capital'
-                   WHEN o.option_order = 2 THEN 'marketing'
-                   WHEN o.option_order = 3 THEN 'strategy'
-                   WHEN o.option_order = 4 THEN 'team'
+                   WHEN o.order_index = 1 THEN 'capital'
+                   WHEN o.order_index = 2 THEN 'marketing'
+                   WHEN o.order_index = 3 THEN 'strategy'
+                   WHEN o.order_index = 4 THEN 'team'
                    ELSE 'general'
                  END as category
           FROM quiz_options o
@@ -221,19 +219,20 @@ export async function POST(request: NextRequest) {
           continue; // Skip invalid options
         }
 
-        const option = optionResult[0] as { points: number; is_correct: boolean; category: string };
-        memberScore += option.points;
+        const option = optionResult[0] as { is_correct: boolean; category: string };
+        const points = option.is_correct ? 10 : 0; // 10 points for correct, 0 for incorrect
+        memberScore += points;
 
         // Add to approach scores
         const category = option.category as keyof ApproachScores;
         if (memberApproachScores[category] !== undefined) {
-          memberApproachScores[category] += option.points;
+          memberApproachScores[category] += points;
         }
 
         // Record the response
         await sql`
           INSERT INTO quiz_responses (team_id, question_id, option_ids, points_earned, is_correct, member_name)
-          VALUES (${teamId}, ${answer.questionId}, ${[answer.selectedOptionId]}, ${option.points}, ${option.is_correct}, ${memberName})
+          VALUES (${teamId}, ${answer.questionId}, ${[answer.selectedOptionId]}, ${points}, ${option.is_correct}, ${memberName})
         `;
       }
 

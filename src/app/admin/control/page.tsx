@@ -19,7 +19,8 @@ import {
   ArrowLeft,
   Settings,
   Timer,
-  Vote
+  Vote,
+  BarChart3
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -27,6 +28,7 @@ interface ContestState {
   contestActive: boolean;
   quizActive: boolean;
   votingActive: boolean;
+  resultsActive: boolean;
   quizTimeLimit: number;
   currentRound: number;
 }
@@ -67,6 +69,7 @@ export default function ContestControlPage() {
           contestActive: data.contestActive,
           quizActive: data.quizActive,
           votingActive: data.votingActive,
+          resultsActive: data.resultsActive || false,
           quizTimeLimit: data.quizTimeLimit,
           currentRound: data.currentRound
         });
@@ -175,7 +178,7 @@ export default function ContestControlPage() {
         </SimpleAlert>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quiz Control */}
         <SimpleCard>
           <SimpleCardHeader>
@@ -348,6 +351,78 @@ export default function ContestControlPage() {
             </div>
           </SimpleCardContent>
         </SimpleCard>
+
+        {/* Results Control */}
+        <SimpleCard>
+          <SimpleCardHeader>
+            <SimpleCardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Results Control
+            </SimpleCardTitle>
+          </SimpleCardHeader>
+          <SimpleCardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div>
+                <h3 className="font-semibold text-lg">Results Status</h3>
+                <p className="text-sm text-gray-600">
+                  {contestState.resultsActive ? 'Results are published' : 'Results are hidden'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {contestState.resultsActive ? (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-5 w-5" />
+                    <span className="font-medium">Published</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Pause className="h-5 w-5" />
+                    <span className="font-medium">Hidden</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <SimpleButton
+                  onClick={() => handleAction('toggle_results', true)}
+                  disabled={contestState.resultsActive || actionLoading === 'toggle_results'}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  {actionLoading === 'toggle_results' ? (
+                    <RotateCcw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Publish Results
+                </SimpleButton>
+                
+                <SimpleButton
+                  onClick={() => handleAction('toggle_results', false)}
+                  disabled={!contestState.resultsActive || actionLoading === 'toggle_results'}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {actionLoading === 'toggle_results' ? (
+                    <RotateCcw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Pause className="h-4 w-4 mr-2" />
+                  )}
+                  Hide Results
+                </SimpleButton>
+              </div>
+
+              {contestState.resultsActive && (
+                <SimpleAlert className="border-green-200 bg-green-50">
+                  <BarChart3 className="h-4 w-4 text-green-600" />
+                  <SimpleAlertDescription className="text-green-800">
+                    Results are published! All teams can now view final standings, quiz scores, and voting outcomes.
+                  </SimpleAlertDescription>
+                </SimpleAlert>
+              )}
+            </div>
+          </SimpleCardContent>
+        </SimpleCard>
       </div>
 
       {/* Status Overview */}
@@ -359,7 +434,7 @@ export default function ContestControlPage() {
           </SimpleCardTitle>
         </SimpleCardHeader>
         <SimpleCardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center p-4 border rounded-lg">
               <Clock className="h-8 w-8 mx-auto mb-2 text-blue-600" />
               <h3 className="font-semibold">Quiz Time Limit</h3>
@@ -377,6 +452,14 @@ export default function ContestControlPage() {
               <h3 className="font-semibold">System Status</h3>
               <p className="text-lg font-medium text-purple-600">
                 {contestState.contestActive ? 'Contest Active' : 'Contest Inactive'}
+              </p>
+            </div>
+            
+            <div className="text-center p-4 border rounded-lg">
+              <BarChart3 className="h-8 w-8 mx-auto mb-2 text-orange-600" />
+              <h3 className="font-semibold">Results Status</h3>
+              <p className="text-lg font-medium text-orange-600">
+                {contestState.resultsActive ? 'Published' : 'Hidden'}
               </p>
             </div>
           </div>

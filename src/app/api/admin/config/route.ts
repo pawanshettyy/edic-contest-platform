@@ -187,33 +187,67 @@ export async function POST(request: NextRequest) {
         ` as unknown[];
         
         let result;
+        
         if (existingConfig && existingConfig.length > 0) {
           // Update existing config
-          const updateFields = Object.keys(validatedData);
-          const updateValues = Object.values(validatedData);
           const configId = (existingConfig[0] as { id: string }).id;
           
-          // Build update query dynamically
-          const updatePairs = updateFields.map((field, index) => `${field} = ${updateValues[index]}`);
-          const setClause = updatePairs.join(', ');
+          // Build update query with individual fields
+          const updateFields = Object.keys(validatedData);
           
+          if (updateFields.includes('contest_name')) {
+            await sql`UPDATE contest_config SET contest_name = ${validatedData.contest_name} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('contest_description')) {
+            await sql`UPDATE contest_config SET contest_description = ${validatedData.contest_description} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('start_date')) {
+            await sql`UPDATE contest_config SET start_date = ${validatedData.start_date} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('end_date')) {
+            await sql`UPDATE contest_config SET end_date = ${validatedData.end_date} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('max_teams')) {
+            await sql`UPDATE contest_config SET max_teams = ${validatedData.max_teams} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('team_size')) {
+            await sql`UPDATE contest_config SET team_size = ${validatedData.team_size} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('registration_open')) {
+            await sql`UPDATE contest_config SET registration_open = ${validatedData.registration_open} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('contest_active')) {
+            await sql`UPDATE contest_config SET contest_active = ${validatedData.contest_active} WHERE id = ${configId}`;
+          }
+          if (updateFields.includes('current_round')) {
+            await sql`UPDATE contest_config SET current_round = ${validatedData.current_round} WHERE id = ${configId}`;
+          }
+          
+          // Update timestamp and get result
           result = await sql`
-            UPDATE contest_config 
-            SET ${sql.unsafe(setClause)}, updated_at = NOW() 
+            UPDATE contest_config SET updated_at = NOW() 
             WHERE id = ${configId} 
             RETURNING *
           ` as unknown[];
         } else {
           // Insert new config
-          const insertFields = Object.keys(validatedData);
-          const insertValues = Object.values(validatedData);
-          const fieldsClause = insertFields.join(', ');
-          const valuesPlaceholders = insertValues.map((value) => `${value}`).join(', ');
-          
           result = await sql`
-            INSERT INTO contest_config (${sql.unsafe(fieldsClause)}, created_at, updated_at) 
-            VALUES (${sql.unsafe(valuesPlaceholders)}, NOW(), NOW()) 
-            RETURNING *
+            INSERT INTO contest_config (
+              contest_name, contest_description, start_date, end_date, 
+              max_teams, team_size, registration_open, contest_active, 
+              current_round, created_at, updated_at
+            ) VALUES (
+              ${validatedData.contest_name || 'New Contest'}, 
+              ${validatedData.contest_description || 'Contest description'}, 
+              ${validatedData.start_date || new Date().toISOString()}, 
+              ${validatedData.end_date || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()}, 
+              ${validatedData.max_teams || 50}, 
+              ${validatedData.team_size || 5}, 
+              ${validatedData.registration_open !== undefined ? validatedData.registration_open : true}, 
+              ${validatedData.contest_active !== undefined ? validatedData.contest_active : false}, 
+              ${validatedData.current_round || 1}, 
+              NOW(), NOW()
+            ) RETURNING *
           ` as unknown[];
         }
         

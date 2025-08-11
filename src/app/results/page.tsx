@@ -10,15 +10,51 @@ import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert
 export default function ResultsPage() {
   const { user, team, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [resultsStatus, setResultsStatus] = useState<{ available: boolean; message: string; currentRound: number } | null>(null);
+  const [checkingResults, setCheckingResults] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  // Check if results are available
+  useEffect(() => {
+    const checkResultsAvailability = async () => {
+      try {
+        const response = await fetch('/api/results/status');
+        const data = await response.json();
+        
+        setResultsStatus({
+          available: data.resultsAvailable || false,
+          message: data.message || 'Results not yet available',
+          currentRound: data.currentRound || 1
+        });
+      } catch (error) {
+        console.error('Error checking results status:', error);
+        setResultsStatus({
+          available: false,
+          message: 'Unable to check results status',
+          currentRound: 1
+        });
+      } finally {
+        setCheckingResults(false);
+      }
+    };
+
+    if (mounted) {
+      checkResultsAvailability();
+    }
+  }, [mounted]);
+
+  if (!mounted || checkingResults) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600 dark:text-gray-400">
+            {checkingResults ? 'Checking results availability...' : 'Loading results...'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -30,6 +66,47 @@ export default function ResultsPage() {
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-lg text-gray-600 dark:text-gray-400">Loading results...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Check if results are available - show locked state if not
+  if (resultsStatus && !resultsStatus.available) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <SimpleCard className="max-w-md w-full mx-4">
+          <SimpleCardHeader className="text-center">
+            <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <SimpleCardTitle>Results Not Available</SimpleCardTitle>
+            <SimpleCardDescription>
+              Results will be published after all contest rounds are completed.
+            </SimpleCardDescription>
+          </SimpleCardHeader>
+          <SimpleCardContent className="text-center">
+            <div className="space-y-4">
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-gray-800 dark:text-gray-200">
+                  <strong>Current Round:</strong> {resultsStatus.currentRound}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {resultsStatus.message}
+                </p>
+              </div>
+              <SimpleAlert>
+                <BarChart3 className="h-4 w-4" />
+                <SimpleAlertDescription>
+                  Results will show quiz scores, voting outcomes, and final rankings once all rounds are complete.
+                </SimpleAlertDescription>
+              </SimpleAlert>
+              <a
+                href="/dashboard"
+                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Back to Dashboard
+              </a>
+            </div>
+          </SimpleCardContent>
+        </SimpleCard>
       </div>
     );
   }

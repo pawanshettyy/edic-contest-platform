@@ -9,8 +9,11 @@
  * Usage: npm run production:init
  */
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
 
 const execAsync = promisify(exec);
 
@@ -104,10 +107,10 @@ async function quickSetup() {
 }
 
 // Run quick setup
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   quickSetup().then(success => {
     process.exit(success ? 0 : 1);
   });
 }
 
-module.exports = { quickSetup };
+export { quickSetup };

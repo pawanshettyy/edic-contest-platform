@@ -9,8 +9,12 @@
  * Usage: npm run setup:env
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 console.log('⚙️  EDIC Contest Platform - Environment Setup');
 console.log('=============================================');
@@ -264,10 +268,10 @@ async function setupEnvironment() {
 }
 
 // Run the setup
-if (require.main === module) {
+if (import.meta.url === `file://${__filename}`) {
   setupEnvironment().then(success => {
     process.exit(success ? 0 : 1);
   });
 }
 
-module.exports = { setupEnvironment, checkEnvironmentVariables, generateJWTSecret };
+export { setupEnvironment, checkEnvironmentVariables, generateJWTSecret };
