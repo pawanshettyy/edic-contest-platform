@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { query } from '@/lib/database';
+import { getSql } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -34,24 +34,18 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      const sql = getSql();
+      
       // Remove session from database
-      await query(
-        'DELETE FROM admin_sessions WHERE session_token = $1',
-        [token]
-      );
+      await sql`
+        DELETE FROM admin_sessions WHERE session_token = ${token}
+      `;
       
       // Log admin logout
-      await query(
-        `INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-         VALUES ($1, 'admin_logout', $2, $3)`,
-        [
-          decoded.adminId,
-          JSON.stringify({ username: decoded.username }),
-          request.headers.get('x-forwarded-for') || 
-          request.headers.get('x-real-ip') || 
-          'unknown'
-        ]
-      );
+      await sql`
+        INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
+        VALUES (${decoded.adminId}, 'admin_logout', ${JSON.stringify({ username: decoded.username })}, ${request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'})
+      `;
       
     } catch (jwtError) {
       console.error('JWT verification error during logout:', jwtError);

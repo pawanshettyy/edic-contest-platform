@@ -34,8 +34,6 @@ export async function query<T = unknown>(text: string, params?: unknown[]): Prom
   }
 
   try {
-    const sql = getSql();
-    
     console.log('⚠️ Legacy query() function called. Consider migrating to template literals.');
     console.log('Query:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
     console.log('Params:', params);

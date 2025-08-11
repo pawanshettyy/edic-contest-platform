@@ -100,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Check if maximum questions limit is reached
     const countResult = await sql`SELECT COUNT(*) as count FROM quiz_questions`;
-    const questionCount = parseInt(String((countResult as any[])[0].count));
+    const questionCount = parseInt(String(((countResult as unknown[])[0] as { count: string }).count));
     
     if (questionCount >= 15) {
       return NextResponse.json(
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         RETURNING id
       `;
 
-      const questionId = (questionResult as any[])[0].id;
+      const questionId = ((questionResult as unknown[])[0] as { id: string }).id;
 
       // Insert options
       for (const option of data.options) {
@@ -327,7 +327,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
       WHERE question_id = ${questionId}
     `;
 
-    const submissionCount = Number((submissionCheck as any[])[0].count);
+    const submissionCount = Number(((submissionCheck as unknown[])[0] as { count: string }).count);
     
     if (submissionCount > 0) {
       return NextResponse.json(

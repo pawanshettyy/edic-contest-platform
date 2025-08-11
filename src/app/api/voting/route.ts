@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSql } from '@/lib/database';
+import { query } from '@/lib/database';
 
 type VotingPhase = 'waiting' | 'pitching' | 'voting' | 'break' | 'completed';
 
@@ -76,24 +76,22 @@ const phaseControlSchema = z.object({
 // Get or create voting session
 async function getVotingSession(): Promise<VotingSession | null> {
   try {
-    const sql = getSql();
-    
     // Get active voting session
-    const sessionResult = await sql`
+    const sessionResult = await query(`
       SELECT * FROM voting_sessions
       WHERE is_active = true
       ORDER BY created_at DESC
       LIMIT 1
-    `;
+    `);
 
-    if ((sessionResult as any[]).length === 0) {
+    if (sessionResult.length === 0) {
       return null;
     }
 
-    const session = (sessionResult as any[])[0];
+    const session = sessionResult[0] as VotingSessionRecord;
 
     // Get teams for this session
-    const teamsResult = await sql`
+    const teamsResult = await query(`
       SELECT 
         t.id as team_id,
         t.team_name,
@@ -102,17 +100,15 @@ async function getVotingSession(): Promise<VotingSession | null> {
         COALESCE(vt.downvotes_used, 0) as downvotes_used,
         CASE WHEN vs.current_presenting_team = t.id THEN true ELSE false END as is_currently_presenting
       FROM teams t
-      LEFT JOIN voting_teams vt ON t.id = vt.team_id AND vt.session_id = ${session.id}
-      JOIN voting_sessions vs ON vs.id = ${session.id}
+      LEFT JOIN voting_teams vt ON t.id = vt.team_id AND vt.session_id = $1
+      JOIN voting_sessions vs ON vs.id = $1
       WHERE t.status = 'active'
-      ORDER BY t.presentation_order
-    `;
       ORDER BY t.presentation_order ASC
-    `, [(session as VotingSessionRecord).id]);
+    `, [session.id]) as TeamRecord[];
 
     // Calculate vote counts for each team
     const teams = await Promise.all(
-      (teamsResult as TeamRecord[]).map(async (team: TeamRecord) => {
+      teamsResult.map(async (team) => {
         const voteStats = await query(`
           SELECT 
             COUNT(CASE WHEN vote_type = 'upvote' THEN 1 END) as upvotes,
@@ -120,7 +116,7 @@ async function getVotingSession(): Promise<VotingSession | null> {
             SUM(points) as total_score
           FROM team_votes
           WHERE to_team_id = $1 AND session_id = $2
-        `, [team.team_id, (session as VotingSessionRecord).id]);
+        `, [team.team_id, session.id]);
 
         const stats = (voteStats[0] || { upvotes: 0, downvotes: 0, total_score: 0 }) as {
           upvotes: number;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getSql, isDatabaseConnected } from '@/lib/database';
+import { query, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;

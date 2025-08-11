@@ -25,11 +25,6 @@ interface TeamStats {
   highest_score: string;
 }
 
-interface TeamInfo {
-  team_name: string;
-  team_code: string;
-}
-
 // Verify admin token
 async function verifyAdminToken(request: NextRequest): Promise<AdminUser> {
   try {
@@ -197,10 +192,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Score value required' }, { status: 400 });
           }
           
-          await query(
-            'UPDATE teams SET total_score = $1, updated_at = NOW() WHERE id = $2',
-            [value, teamId]
-          );
+          const sql = getSql();
+          await sql`
+            UPDATE teams SET total_score = ${value}, updated_at = NOW() WHERE id = ${teamId}
+          `;
           break;
           
         case 'add_penalty':
@@ -209,17 +204,17 @@ export async function POST(request: NextRequest) {
           }
           
           try {
+            const sql = getSql();
             // Add penalty record
-            await query(
-              'INSERT INTO team_penalties (team_id, penalty_points, reason, applied_by) VALUES ($1, $2, $3, $4)',
-              [teamId, value, reason || 'Admin penalty', admin.id]
-            );
+            await sql`
+              INSERT INTO team_penalties (team_id, penalty_points, reason, applied_by) 
+              VALUES (${teamId}, ${value}, ${reason || 'Admin penalty'}, ${admin.id})
+            `;
             
             // Update team score
-            await query(
-              'UPDATE teams SET offline_score = offline_score - $1, updated_at = NOW() WHERE id = $2',
-              [value, teamId]
-            );
+            await sql`
+              UPDATE teams SET offline_score = offline_score - ${value}, updated_at = NOW() WHERE id = ${teamId}
+            `;
           } catch (error) {
             console.error('Error applying penalty:', error);
             return NextResponse.json({ error: 'Failed to apply penalty' }, { status: 500 });
@@ -227,17 +222,21 @@ export async function POST(request: NextRequest) {
           break;
           
         case 'reset_progress':
-          await query(
-            'UPDATE teams SET current_round = 1, total_score = 0, quiz_score = 0, voting_score = 0, offline_score = 0, updated_at = NOW() WHERE id = $1',
-            [teamId]
-          );
+          {
+            const sql = getSql();
+            await sql`
+              UPDATE teams SET current_round = 1, total_score = 0, quiz_score = 0, voting_score = 0, offline_score = 0, updated_at = NOW() WHERE id = ${teamId}
+            `;
+          }
           break;
           
         case 'disqualify':
-          await query(
-            'UPDATE teams SET is_disqualified = true, status = $1, updated_at = NOW() WHERE id = $2',
-            ['disqualified', teamId]
-          );
+          {
+            const sql = getSql();
+            await sql`
+              UPDATE teams SET is_disqualified = true, status = 'disqualified', updated_at = NOW() WHERE id = ${teamId}
+            `;
+          }
           break;
           
         default:
@@ -245,18 +244,11 @@ export async function POST(request: NextRequest) {
       }
       
       // Log admin action
-      await query(
-        `INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          admin.id,
-          `TEAM_${action.toUpperCase()}`,
-          'team',
-          teamId,
-          JSON.stringify({ action, value, reason }),
-          request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-        ]
-      );
+      const sql = getSql();
+      await sql`
+        INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
+        VALUES (${admin.id}, ${'TEAM_' + action.toUpperCase()}, 'team', ${teamId}, ${JSON.stringify({ action, value, reason })}, ${request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'})
+      `;
       
       return NextResponse.json({ 
         success: true,
@@ -273,12 +265,12 @@ export async function POST(request: NextRequest) {
       }
 
       // Check if team name or code already exists
-      const existingTeam = await query(
-        'SELECT id FROM teams WHERE team_name = $1 OR team_code = $2',
-        [teamName, teamCode]
-      );
+      const sql = getSql();
+      const existingTeam = await sql`
+        SELECT id FROM teams WHERE team_name = ${teamName} OR team_code = ${teamCode}
+      `;
 
-      if (existingTeam.length > 0) {
+      if ((existingTeam as unknown[]).length > 0) {
         return NextResponse.json(
           { success: false, error: 'Team name or code already exists' },
           { status: 409 }
@@ -291,63 +283,51 @@ export async function POST(request: NextRequest) {
       // Create team (converted from transaction for Neon serverless)
       try {
         // Insert team
-        const teamResult = await query(
-          `INSERT INTO teams (team_name, team_code, password_hash, status)
-           VALUES ($1, $2, $3, 'active')
-           RETURNING id, team_name, team_code, created_at`,
-          [teamName, teamCode, passwordHash]
-        );
+        const teamResult = await sql`
+          INSERT INTO teams (team_name, team_code, password_hash, status)
+          VALUES (${teamName}, ${teamCode}, ${passwordHash}, 'active')
+          RETURNING id, team_name, team_code, created_at
+        `;
 
-        const newTeam = teamResult[0];
+        const newTeam = (teamResult as unknown[])[0];
 
         // Add members if provided
         if (members.length > 0) {
           for (const member of members) {
             if (member.username && member.email) {
               // Check if user exists
-              const userResult = await query(
-                'SELECT id FROM users WHERE email = $1',
-                [member.email]
-              );
+              const userResult = await sql`
+                SELECT id FROM users WHERE email = ${member.email}
+              `;
 
               let userId;
-              if (userResult.length === 0) {
+              if ((userResult as unknown[]).length === 0) {
                 // Create new user
-                const newUserResult = await query(
-                  `INSERT INTO users (username, email, password_hash, is_active)
-                   VALUES ($1, $2, $3, true)
-                   RETURNING id`,
-                  [member.username, member.email, passwordHash]
-                );
-                userId = (newUserResult[0] as { id: string }).id;
+                const newUserResult = await sql`
+                  INSERT INTO users (username, email, password_hash, is_active)
+                  VALUES (${member.username}, ${member.email}, ${passwordHash}, true)
+                  RETURNING id
+                `;
+                userId = ((newUserResult as unknown[])[0] as { id: string }).id;
               } else {
-                userId = (userResult[0] as { id: string }).id;
+                userId = ((userResult as unknown[])[0] as { id: string }).id;
               }
 
               // Add to team
-              await query(
-                `INSERT INTO team_members (team_id, user_id, is_leader)
-                 VALUES ($1, $2, $3)
-                 ON CONFLICT (team_id, user_id) DO NOTHING`,
-                [(newTeam as { id: string }).id, userId, member.isLeader || false]
-              );
+              await sql`
+                INSERT INTO team_members (team_id, user_id, is_leader)
+                VALUES (${(newTeam as { id: string }).id}, ${userId}, ${member.isLeader || false})
+                ON CONFLICT (team_id, user_id) DO NOTHING
+              `;
             }
           }
         }
 
         // Log admin action
-        await query(
-          `INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            admin.id,
-            'CREATE_TEAM',
-            'team',
-            (newTeam as { id: string }).id,
-            JSON.stringify({ team_name: teamName, team_code: teamCode, members_count: members.length }),
-            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-          ]
-        );
+        await sql`
+          INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
+          VALUES (${admin.id}, 'TEAM_CREATE', 'team', ${(newTeam as { id: string }).id}, ${JSON.stringify({ teamName, teamCode, memberCount: members.length })}, ${request.headers.get('x-forwarded-for') || 'unknown'})
+        `;
 
         return NextResponse.json({
           success: true,
@@ -400,12 +380,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get team info before deletion
-    const teamInfo = await query(
-      'SELECT team_name, team_code FROM teams WHERE id = $1',
-      [teamId]
-    );
+    const sql = getSql();
+    const teamInfo = await sql`
+      SELECT team_name, team_code FROM teams WHERE id = ${teamId}
+    `;
 
-    if (teamInfo.length === 0) {
+    if ((teamInfo as unknown[]).length === 0) {
       return NextResponse.json(
         { success: false, error: 'Team not found' },
         { status: 404 }
@@ -413,22 +393,14 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Delete team (cascade will remove related records)
-    await query('DELETE FROM teams WHERE id = $1', [teamId]);
+    await sql`DELETE FROM teams WHERE id = ${teamId}`;
 
     // Log admin action
-    const teamData = teamInfo[0] as TeamInfo;
-    await query(
-      `INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [
-        admin.id,
-        'DELETE_TEAM',
-        'team',
-        teamId,
-        JSON.stringify({ team_name: teamData.team_name, team_code: teamData.team_code }),
-        request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-      ]
-    );
+    const teamData = (teamInfo as unknown[])[0] as { team_name: string; team_code: string };
+    await sql`
+      INSERT INTO admin_logs (admin_user_id, action, target_type, target_id, details, ip_address)
+      VALUES (${admin.id}, 'DELETE_TEAM', 'team', ${teamId}, ${JSON.stringify({ team_name: teamData.team_name, team_code: teamData.team_code })}, ${request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'})
+    `;
 
     return NextResponse.json({
       success: true,

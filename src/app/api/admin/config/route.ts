@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { query, isDatabaseConnected } from '@/lib/database';
+import { getSql, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -34,6 +34,7 @@ const roundConfigSchema = z.object({
 });
 
 async function verifyAdminSession(token: string) {
+  const sql = getSql();
   const decoded = jwt.verify(
     token,
     process.env.JWT_SECRET || 'fallback-secret-for-development'
@@ -52,10 +53,10 @@ async function verifyAdminSession(token: string) {
   }
   
   try {
-    const sessions = await query(
-      'SELECT * FROM admin_sessions WHERE admin_user_id = $1 AND is_active = true',
-      [decoded.adminId]
-    );
+    const sessions = await sql`
+      SELECT * FROM admin_sessions 
+      WHERE admin_user_id = ${decoded.adminId} AND is_active = true
+    ` as unknown[];
     
     if (!sessions || sessions.length === 0) {
       throw new Error('No active admin session found');
@@ -72,6 +73,7 @@ async function verifyAdminSession(token: string) {
 }
 
 export async function GET(request: NextRequest) {
+  const sql = getSql();
   try {
     const token = request.cookies.get('admin-token')?.value;
     
@@ -106,14 +108,14 @@ export async function GET(request: NextRequest) {
     
     try {
       // Get contest configuration
-      const config = await query(
-        'SELECT * FROM contest_config ORDER BY created_at DESC LIMIT 1'
-      );
+      const config = await sql`
+        SELECT * FROM contest_config ORDER BY created_at DESC LIMIT 1
+      ` as unknown[];
       
       // Get contest rounds
-      const rounds = await query(
-        'SELECT * FROM contest_rounds ORDER BY round_number ASC'
-      );
+      const rounds = await sql`
+        SELECT * FROM contest_rounds ORDER BY round_number ASC
+      ` as unknown[];
       
       return NextResponse.json({
         config: config?.[0] || null,
@@ -153,6 +155,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const sql = getSql();
   try {
     const token = request.cookies.get('admin-token')?.value;
     
@@ -179,47 +182,47 @@ export async function POST(request: NextRequest) {
         const validatedData = configUpdateSchema.parse(body);
         
         // Try to update existing config first
-        const existingConfig = await query(
-          'SELECT id FROM contest_config ORDER BY created_at DESC LIMIT 1'
-        );
+        const existingConfig = await sql`
+          SELECT id FROM contest_config ORDER BY created_at DESC LIMIT 1
+        ` as unknown[];
         
         let result;
         if (existingConfig && existingConfig.length > 0) {
           // Update existing config
           const updateFields = Object.keys(validatedData);
           const updateValues = Object.values(validatedData);
-          const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+          const configId = (existingConfig[0] as { id: string }).id;
           
-          result = await query(
-            `UPDATE contest_config SET ${setClause}, updated_at = NOW() WHERE id = $${updateFields.length + 1} RETURNING *`,
-            [...updateValues, (existingConfig[0] as { id: string }).id]
-          );
+          // Build update query dynamically
+          const updatePairs = updateFields.map((field, index) => `${field} = ${updateValues[index]}`);
+          const setClause = updatePairs.join(', ');
+          
+          result = await sql`
+            UPDATE contest_config 
+            SET ${sql.unsafe(setClause)}, updated_at = NOW() 
+            WHERE id = ${configId} 
+            RETURNING *
+          ` as unknown[];
         } else {
           // Insert new config
           const insertFields = Object.keys(validatedData);
           const insertValues = Object.values(validatedData);
           const fieldsClause = insertFields.join(', ');
-          const valuesClause = insertFields.map((_, index) => `$${index + 1}`).join(', ');
+          const valuesPlaceholders = insertValues.map((value) => `${value}`).join(', ');
           
-          result = await query(
-            `INSERT INTO contest_config (${fieldsClause}, created_at, updated_at) VALUES (${valuesClause}, NOW(), NOW()) RETURNING *`,
-            insertValues
-          );
+          result = await sql`
+            INSERT INTO contest_config (${sql.unsafe(fieldsClause)}, created_at, updated_at) 
+            VALUES (${sql.unsafe(valuesPlaceholders)}, NOW(), NOW()) 
+            RETURNING *
+          ` as unknown[];
         }
         
         // Log admin action
         try {
-          await query(
-            `INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [
-              admin.adminId,
-              'config_update',
-              'config',
-              JSON.stringify(validatedData),
-              request.headers.get('x-forwarded-for') || 'unknown'
-            ]
-          );
+          await sql`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
+            VALUES (${admin.adminId}, ${'config_update'}, ${'config'}, ${JSON.stringify(validatedData)}, ${request.headers.get('x-forwarded-for') || 'unknown'}, NOW())
+          `;
         } catch (logError) {
           console.warn('Could not log admin action:', logError);
         }
@@ -233,48 +236,44 @@ export async function POST(request: NextRequest) {
         const validatedData = roundConfigSchema.parse(body);
         
         // Try to update existing round first
-        const existingRound = await query(
-          'SELECT id FROM contest_rounds WHERE round_number = $1',
-          [validatedData.round_number]
-        );
+        const existingRound = await sql`
+          SELECT id FROM contest_rounds WHERE round_number = ${validatedData.round_number}
+        ` as unknown[];
         
         let result;
         if (existingRound && existingRound.length > 0) {
           // Update existing round
           const updateFields = Object.keys(validatedData).filter(f => f !== 'round_number');
           const updateValues = updateFields.map(f => validatedData[f as keyof typeof validatedData]);
-          const setClause = updateFields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+          const updatePairs = updateFields.map((field, index) => `${field} = ${updateValues[index]}`);
+          const setClause = updatePairs.join(', ');
           
-          result = await query(
-            `UPDATE contest_rounds SET ${setClause}, updated_at = NOW() WHERE round_number = $${updateFields.length + 1} RETURNING *`,
-            [...updateValues, validatedData.round_number]
-          );
+          result = await sql`
+            UPDATE contest_rounds 
+            SET ${sql.unsafe(setClause)}, updated_at = NOW() 
+            WHERE round_number = ${validatedData.round_number} 
+            RETURNING *
+          ` as unknown[];
         } else {
           // Insert new round
           const insertFields = Object.keys(validatedData);
           const insertValues = Object.values(validatedData);
           const fieldsClause = insertFields.join(', ');
-          const valuesClause = insertFields.map((_, index) => `$${index + 1}`).join(', ');
+          const valuesPlaceholders = insertValues.map((value) => `${value}`).join(', ');
           
-          result = await query(
-            `INSERT INTO contest_rounds (${fieldsClause}, created_at, updated_at) VALUES (${valuesClause}, NOW(), NOW()) RETURNING *`,
-            insertValues
-          );
+          result = await sql`
+            INSERT INTO contest_rounds (${sql.unsafe(fieldsClause)}, created_at, updated_at) 
+            VALUES (${sql.unsafe(valuesPlaceholders)}, NOW(), NOW()) 
+            RETURNING *
+          ` as unknown[];
         }
         
         // Log admin action
         try {
-          await query(
-            `INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
-             VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [
-              admin.adminId,
-              'round_update',
-              'round',
-              JSON.stringify(validatedData),
-              request.headers.get('x-forwarded-for') || 'unknown'
-            ]
-          );
+          await sql`
+            INSERT INTO admin_logs (admin_user_id, action, target_type, details, ip_address, timestamp) 
+            VALUES (${admin.adminId}, ${'round_update'}, ${'round'}, ${JSON.stringify(validatedData)}, ${request.headers.get('x-forwarded-for') || 'unknown'}, NOW())
+          `;
         } catch (logError) {
           console.warn('Could not log admin action:', logError);
         }

@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSql } from '../../../../lib/database';
 import bcrypt from 'bcryptjs';
 
-// Type-safe database result wrapper
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DatabaseResult = Record<string, any>[];
-
 /**
  * Production Database Setup API Endpoint
  * Call this endpoint after deployment to initialize production database
@@ -29,15 +25,14 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Starting production database setup...');
 
     // 1. Check if admin users already exist
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existingAdmins = await sql`
       SELECT COUNT(*) as count FROM admin_users
-    ` as any;
+    ` as unknown[];
     
-    if (existingAdmins[0]?.count > 0) {
+    if ((existingAdmins[0] as { count: number })?.count > 0) {
       return NextResponse.json({
         message: 'Production database already initialized',
-        adminCount: existingAdmins[0].count
+        adminCount: (existingAdmins[0] as { count: number }).count
       });
     }
 
@@ -60,7 +55,6 @@ export async function POST(request: NextRequest) {
     for (const admin of adminUsers) {
       const hashedPassword = await bcrypt.hash(admin.password, 12);
       
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newAdmin = await sql`
         INSERT INTO admin_users (username, email, password_hash, role, permissions)
         VALUES (
@@ -71,13 +65,14 @@ export async function POST(request: NextRequest) {
           ${'{"teams": true, "config": true, "monitor": true, "questions": true}'}
         )
         RETURNING id, username, email, role
-      ` as any;
+      ` as unknown[];
       
+      const adminData = newAdmin[0] as { id: string; username: string; email: string; role: string };
       createdAdmins.push({
-        id: newAdmin[0]?.id,
-        username: newAdmin[0]?.username,
-        email: newAdmin[0]?.email,
-        role: newAdmin[0]?.role
+        id: adminData?.id,
+        username: adminData?.username,
+        email: adminData?.email,
+        role: adminData?.role
       });
     }
 
