@@ -122,7 +122,6 @@ const MIGRATIONS = [
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         question TEXT NOT NULL,
         points INTEGER DEFAULT 1,
-        time_limit INTEGER DEFAULT 30,
         category VARCHAR(100),
         is_active BOOLEAN DEFAULT true,
         order_index INTEGER,

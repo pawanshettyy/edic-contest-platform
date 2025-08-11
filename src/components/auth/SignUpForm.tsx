@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthLayout } from './AuthLayout';
 import { SimpleButton } from '@/components/ui/simple-button';
@@ -10,8 +10,15 @@ import { SimpleCard, SimpleCardContent } from '@/components/ui/SimpleCard';
 import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
 import { useAuth } from '@/context/AuthContext';
 import { SignUpFormData } from '@/types/auth';
-import { Eye, EyeOff, Users, User, Mail, Lock, Shield } from 'lucide-react';
+import { Eye, EyeOff, Users, User, Mail, Lock, Shield, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+
+interface RegistrationStatus {
+  registrationOpen: boolean;
+  registrationDeadline?: string;
+  contestActive?: boolean;
+  message: string;
+}
 
 export const SignUpForm: React.FC = () => {
   const router = useRouter();
@@ -19,6 +26,8 @@ export const SignUpForm: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showTeamPassword, setShowTeamPassword] = useState(false);
   const [error, setError] = useState('');
+  const [registrationStatus, setRegistrationStatus] = useState<RegistrationStatus | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
 
   const [formData, setFormData] = useState<SignUpFormData>({
     leaderName: '',
@@ -33,6 +42,27 @@ export const SignUpForm: React.FC = () => {
     teamPassword: '',
     confirmTeamPassword: '',
   });
+
+  // Check registration status on component mount
+  useEffect(() => {
+    const checkRegistrationStatus = async () => {
+      try {
+        const response = await fetch('/api/registration/status');
+        const data = await response.json();
+        setRegistrationStatus(data);
+      } catch (error) {
+        console.error('Error checking registration status:', error);
+        setRegistrationStatus({
+          registrationOpen: false,
+          message: 'Error checking registration status'
+        });
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+
+    checkRegistrationStatus();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -98,6 +128,39 @@ export const SignUpForm: React.FC = () => {
       title="Create Team Account"
       subtitle="Register your team for the contest"
     >
+      {loadingStatus ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Checking registration status...</span>
+        </div>
+      ) : !registrationStatus?.registrationOpen ? (
+        <SimpleCard className="border-red-200 dark:border-red-800">
+          <SimpleCardContent className="p-6 text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-red-600 mb-2">Registration Closed</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {registrationStatus?.message || 'Team registration is currently closed.'}
+            </p>
+            {registrationStatus?.registrationDeadline && (
+              <p className="text-sm text-gray-500">
+                Registration deadline: {new Date(registrationStatus.registrationDeadline).toLocaleString()}
+              </p>
+            )}
+            <div className="mt-6">
+              <Link href="/auth/signin">
+                <SimpleButton variant="outline" className="mr-4">
+                  Sign In Instead
+                </SimpleButton>
+              </Link>
+              <Link href="/">
+                <SimpleButton>
+                  Back to Home
+                </SimpleButton>
+              </Link>
+            </div>
+          </SimpleCardContent>
+        </SimpleCard>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <SimpleAlert variant="destructive">
@@ -337,6 +400,7 @@ export const SignUpForm: React.FC = () => {
           </p>
         </div>
       </form>
+      )}
     </AuthLayout>
   );
 };

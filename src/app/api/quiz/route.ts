@@ -17,7 +17,6 @@ interface DatabaseQuestion {
   id: string;
   question: string;
   category: string;
-  time_limit: number;
   is_active: boolean;
   options: Record<string, unknown>[];
 }
@@ -82,7 +81,6 @@ export async function GET(request: NextRequest) {
         q.id,
         q.question,
         q.category,
-        q.time_limit,
         q.is_active,
         json_agg(
           json_build_object(
@@ -102,7 +100,7 @@ export async function GET(request: NextRequest) {
       FROM quiz_questions q
       LEFT JOIN quiz_options o ON q.id = o.question_id
       WHERE q.is_active = true
-      GROUP BY q.id, q.question, q.category, q.time_limit, q.is_active
+      GROUP BY q.id, q.question, q.category, q.is_active
       ORDER BY RANDOM()
       LIMIT 15
     ` as DatabaseResult;
@@ -114,7 +112,6 @@ export async function GET(request: NextRequest) {
         question: question.question,
         type: 'multiple_choice', // All questions are MCQ now
         category: question.category,
-        timeLimit: question.time_limit,
         options: question.options || [],
         orderIndex: Math.floor(Math.random() * 1000)
       };

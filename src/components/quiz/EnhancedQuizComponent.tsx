@@ -18,7 +18,6 @@ interface QuizQuestion {
   question: string;
   type: string;
   options: QuizOption[];
-  timeLimit: number;
   orderIndex: number;
 }
 
@@ -79,6 +78,9 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
   const [error, setError] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFinalSubmit, setShowFinalSubmit] = useState(false);
+  const [contestStatus, setContestStatus] = useState<{ quizActive: boolean; autoSubmitWarning?: boolean; autoSubmitAt?: number }>({ quizActive: true });
+  const [showAutoSubmitWarning, setShowAutoSubmitWarning] = useState(false);
+  const [autoSubmitCountdown, setAutoSubmitCountdown] = useState<number | null>(null);
 
   // Fullscreen functions
   const enterFullscreen = useCallback(async () => {
@@ -388,6 +390,61 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
     fetchQuestions();
   }, [fetchQuestions]);
 
+  // Poll for contest status
+  useEffect(() => {
+    if (!quizStarted || quizCompleted) return;
+
+    const pollContestStatus = async () => {
+      try {
+        const response = await fetch('/api/contest/status');
+        const data = await response.json();
+        
+        if (data.success) {
+          setContestStatus(data);
+          
+          // Handle quiz disable warning
+          if (data.autoSubmitWarning && data.autoSubmitAt) {
+            const timeUntilAutoSubmit = Math.max(0, Math.floor((data.autoSubmitAt - Date.now()) / 1000));
+            setAutoSubmitCountdown(timeUntilAutoSubmit);
+            setShowAutoSubmitWarning(true);
+            
+            // Start countdown for auto-submit
+            if (timeUntilAutoSubmit > 0) {
+              const countdownTimer = setInterval(() => {
+                setAutoSubmitCountdown(prev => {
+                  if (prev === null || prev <= 1) {
+                    clearInterval(countdownTimer);
+                    // Force submit quiz
+                    completeQuiz();
+                    return 0;
+                  }
+                  return prev - 1;
+                });
+              }, 1000);
+              
+              return () => clearInterval(countdownTimer);
+            }
+          }
+          
+          // If quiz becomes inactive and no warning was given, force submit immediately
+          if (!data.quizActive && !data.autoSubmitWarning) {
+            completeQuiz();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch contest status:', error);
+      }
+    };
+
+    // Poll every 5 seconds
+    const statusInterval = setInterval(pollContestStatus, 5000);
+    
+    // Initial poll
+    pollContestStatus();
+
+    return () => clearInterval(statusInterval);
+  }, [quizStarted, quizCompleted, completeQuiz]);
+
   if (!user || !team) {
     return (
       <SimpleCard className="w-full max-w-2xl mx-auto">
@@ -677,7 +734,49 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
 
   return (
     <div className={`w-full ${isFullscreen ? 'fixed inset-0 z-50 bg-white dark:bg-gray-900 h-screen flex' : 'max-w-6xl mx-auto'}`}>
-      {/* Question Navigation Panel */}
+          {/* Auto-Submit Warning Modal */}
+      {showAutoSubmitWarning && autoSubmitCountdown !== null && (
+        <div className="fixed inset-0 z-[100] bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Clock className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Quiz Auto-Submit Warning
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                The quiz session is ending soon. Your progress will be automatically submitted in:
+              </p>
+              <div className="text-3xl font-bold text-red-600 mb-4">
+                {Math.floor(autoSubmitCountdown / 60)}:{String(autoSubmitCountdown % 60).padStart(2, '0')}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Don&apos;t worry - all your current answers will be saved.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contest Status Warning */}
+      {!contestStatus.quizActive && !quizCompleted && (
+        <div className="fixed inset-0 z-[100] bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4 shadow-xl">
+            <div className="text-center">
+              <div className="mx-auto mb-4 w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Clock className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Quiz Session Ended
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                The quiz session has been ended by the administrator. Your progress is being saved...
+              </p>
+            </div>
+          </div>
+        </div>
+      )}      {/* Question Navigation Panel */}
       {isFullscreen && (
         <div className="w-64 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 overflow-y-auto">
           <div className="space-y-4">

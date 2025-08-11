@@ -311,7 +311,20 @@ export default function AdminDashboard() {
             </SimpleCard>
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              <SimpleCard className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Contest Control</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Real-time control of quiz and voting sessions for all teams.
+                </p>
+                <SimpleButton 
+                  className="w-full bg-red-600 hover:bg-red-700 text-white"
+                  onClick={() => router.push('/admin/control')}
+                >
+                  Control Panel
+                </SimpleButton>
+              </SimpleCard>
+
               <SimpleCard className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Team Management</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">

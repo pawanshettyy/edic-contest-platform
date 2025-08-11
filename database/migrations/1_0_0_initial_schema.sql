@@ -47,10 +47,14 @@
         contest_description TEXT,
         start_date TIMESTAMP WITH TIME ZONE,
         end_date TIMESTAMP WITH TIME ZONE,
+        registration_deadline TIMESTAMP WITH TIME ZONE,
         max_teams INTEGER DEFAULT 50,
         team_size INTEGER DEFAULT 5,
         registration_open BOOLEAN DEFAULT true,
         contest_active BOOLEAN DEFAULT false,
+        quiz_active BOOLEAN DEFAULT false,
+        quiz_time_limit_minutes INTEGER DEFAULT 30,
+        voting_active BOOLEAN DEFAULT false,
         current_round INTEGER DEFAULT 1,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -100,7 +104,6 @@
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         question TEXT NOT NULL,
         points INTEGER DEFAULT 1,
-        time_limit INTEGER DEFAULT 30,
         category VARCHAR(100),
         is_active BOOLEAN DEFAULT true,
         order_index INTEGER,
@@ -116,6 +119,34 @@
         is_correct BOOLEAN DEFAULT false,
         order_index INTEGER,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create quiz_sessions table
+      CREATE TABLE IF NOT EXISTS quiz_sessions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+        member_name VARCHAR(255) NOT NULL,
+        started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        ends_at TIMESTAMP WITH TIME ZONE,
+        submitted_at TIMESTAMP WITH TIME ZONE,
+        is_active BOOLEAN DEFAULT true,
+        total_score INTEGER DEFAULT 0,
+        questions_answered INTEGER DEFAULT 0,
+        auto_submitted BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Create quiz_submissions table
+      CREATE TABLE IF NOT EXISTS quiz_submissions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        session_id UUID REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+        question_id UUID REFERENCES quiz_questions(id) ON DELETE CASCADE,
+        selected_option_id UUID REFERENCES quiz_options(id) ON DELETE CASCADE,
+        time_spent INTEGER DEFAULT 0,
+        points_earned INTEGER DEFAULT 0,
+        submitted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(session_id, question_id)
       );
 
       -- Create voting_sessions table

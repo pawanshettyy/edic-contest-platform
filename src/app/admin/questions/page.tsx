@@ -16,7 +16,6 @@ interface QuizQuestion {
   id?: string;
   question: string;
   category: string;
-  time_limit: number;
   is_active: boolean;
   options: QuizOption[];
 }
@@ -32,7 +31,6 @@ export default function AdminQuestionsPage() {
   const [formData, setFormData] = useState<QuizQuestion>({
     question: '',
     category: 'Capital',
-    time_limit: 45,
     is_active: true,
     options: [
       { option_text: '', points: 0, is_correct: false, option_order: 1 },
@@ -69,7 +67,6 @@ export default function AdminQuestionsPage() {
     setFormData({
       question: '',
       category: 'Capital',
-      time_limit: 45,
       is_active: true,
       options: [
         { option_text: '', points: 0, is_correct: false, option_order: 1 },
@@ -261,21 +258,6 @@ export default function AdminQuestionsPage() {
                   ))}
                 </select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Time Limit (seconds)</label>
-                <input
-                  type="number"
-                  min="10"
-                  max="300"
-                  value={formData.time_limit}
-                  onChange={(e) => setFormData({ ...formData, time_limit: parseInt(e.target.value) })}
-                  className="w-full border rounded px-3 py-2"
-                  required
-                />
-              </div>
 
               <div className="flex items-center">
                 <input
@@ -378,7 +360,6 @@ export default function AdminQuestionsPage() {
                     <div className="flex gap-4 text-sm text-gray-600 mt-1">
                       <span>Type: MCQ</span>
                       <span>Category: {question.category}</span>
-                      <span>Time: {question.time_limit}s</span>
                       <span className={question.is_active ? 'text-green-600' : 'text-red-600'}>
                         {question.is_active ? 'Active' : 'Inactive'}
                       </span>
