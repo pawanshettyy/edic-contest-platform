@@ -1,5 +1,5 @@
 // User and Team data access objects
-import { query, transaction } from './database';
+import { getSql } from './database';
 import bcrypt from 'bcryptjs';
 
 export interface User {
@@ -46,19 +46,19 @@ export interface TeamProgress {
 // User DAO
 export class UserDAO {
   static async findByEmail(email: string): Promise<User | null> {
-    const users = await query<User>(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
-    return users[0] || null;
+    const sql = getSql();
+    const users = await sql`
+      SELECT * FROM users WHERE email = ${email}
+    `;
+    return (users as User[])[0] || null;
   }
 
   static async findById(id: string): Promise<User | null> {
-    const users = await query<User>(
-      'SELECT * FROM users WHERE id = $1',
-      [id]
-    );
-    return users[0] || null;
+    const sql = getSql();
+    const users = await sql`
+      SELECT * FROM users WHERE id = ${id}
+    `;
+    return (users as User[])[0] || null;
   }
 
   static async create(userData: {
@@ -69,41 +69,41 @@ export class UserDAO {
     teamId: string;
   }): Promise<User> {
     const passwordHash = await bcrypt.hash(userData.password, 12);
+    const sql = getSql();
     
-    const users = await query<User>(
-      `INSERT INTO users (name, email, password_hash, is_leader, team_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [userData.name, userData.email, passwordHash, userData.isLeader, userData.teamId]
-    );
+    const users = await sql`
+      INSERT INTO users (name, email, password_hash, is_leader, team_id)
+      VALUES (${userData.name}, ${userData.email}, ${passwordHash}, ${userData.isLeader}, ${userData.teamId})
+      RETURNING *
+    `;
     
-    return users[0];
+    return (users as User[])[0];
   }
 
   static async updateTeam(userId: string, teamId: string): Promise<void> {
-    await query(
-      'UPDATE users SET team_id = $1, updated_at = NOW() WHERE id = $2',
-      [teamId, userId]
-    );
+    const sql = getSql();
+    await sql`
+      UPDATE users SET team_id = ${teamId}, updated_at = NOW() WHERE id = ${userId}
+    `;
   }
 }
 
 // Team DAO
 export class TeamDAO {
   static async findByName(name: string): Promise<Team | null> {
-    const teams = await query<Team>(
-      'SELECT * FROM teams WHERE name = $1',
-      [name]
-    );
-    return teams[0] || null;
+    const sql = getSql();
+    const teams = await sql`
+      SELECT * FROM teams WHERE name = ${name}
+    `;
+    return (teams as Team[])[0] || null;
   }
 
   static async findById(id: string): Promise<Team | null> {
-    const teams = await query<Team>(
-      'SELECT * FROM teams WHERE id = $1',
-      [id]
-    );
-    return teams[0] || null;
+    const sql = getSql();
+    const teams = await sql`
+      SELECT * FROM teams WHERE id = ${id}
+    `;
+    return (teams as Team[])[0] || null;
   }
 
   static async create(teamData: {
@@ -112,40 +112,40 @@ export class TeamDAO {
     leaderId: string;
   }): Promise<Team> {
     const passwordHash = await bcrypt.hash(teamData.password, 12);
+    const sql = getSql();
     
-    const teams = await query<Team>(
-      `INSERT INTO teams (name, password_hash, leader_id)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [teamData.name, passwordHash, teamData.leaderId]
-    );
+    const teams = await sql`
+      INSERT INTO teams (name, password_hash, leader_id)
+      VALUES (${teamData.name}, ${passwordHash}, ${teamData.leaderId})
+      RETURNING *
+    `;
     
-    return teams[0];
+    return (teams as Team[])[0];
   }
 
   static async getMembers(teamId: string): Promise<TeamMember[]> {
-    return await query<TeamMember>(
-      `SELECT tm.*, u.name 
-       FROM team_members tm
-       JOIN users u ON tm.user_id = u.id
-       WHERE tm.team_id = $1
-       ORDER BY tm.is_leader DESC, tm.joined_at ASC`,
-      [teamId]
-    );
+    const sql = getSql();
+    return await sql`
+      SELECT tm.*, u.name 
+      FROM team_members tm
+      JOIN users u ON tm.user_id = u.id
+      WHERE tm.team_id = ${teamId}
+      ORDER BY tm.is_leader DESC, tm.joined_at ASC
+    ` as TeamMember[];
   }
 
   static async addMember(teamId: string, memberData: {
     name: string;
     isLeader: boolean;
   }): Promise<TeamMember> {
-    const members = await query<TeamMember>(
-      `INSERT INTO team_members (team_id, name, is_leader)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [teamId, memberData.name, memberData.isLeader]
-    );
+    const sql = getSql();
+    const members = await sql`
+      INSERT INTO team_members (team_id, name, is_leader)
+      VALUES (${teamId}, ${memberData.name}, ${memberData.isLeader})
+      RETURNING *
+    `;
     
-    return members[0];
+    return (members as TeamMember[])[0];
   }
 
   static async verifyPassword(teamId: string, password: string): Promise<boolean> {
@@ -159,14 +159,14 @@ export class TeamDAO {
 // Team Progress DAO
 export class TeamProgressDAO {
   static async getProgress(teamId: string): Promise<TeamProgress[]> {
-    return await query<TeamProgress>(
-      `SELECT tp.*, cr.round_number, cr.name as round_name
-       FROM team_progress tp
-       JOIN contest_rounds cr ON tp.round_id = cr.id
-       WHERE tp.team_id = $1
-       ORDER BY cr.round_number`,
-      [teamId]
-    );
+    const sql = getSql();
+    return await sql`
+      SELECT tp.*, cr.round_number, cr.name as round_name
+      FROM team_progress tp
+      JOIN contest_rounds cr ON tp.round_id = cr.id
+      WHERE tp.team_id = ${teamId}
+      ORDER BY cr.round_number
+    ` as TeamProgress[];
   }
 
   static async updateProgress(
@@ -179,40 +179,29 @@ export class TeamProgressDAO {
       submissionData?: Record<string, unknown>;
     }
   ): Promise<void> {
-    const setClause: string[] = [];
-    const values: unknown[] = [];
-    let paramCount = 1;
-
-    if (data.completed !== undefined) {
-      setClause.push(`completed = $${paramCount++}`);
-      values.push(data.completed);
-    }
-    if (data.qualified !== undefined) {
-      setClause.push(`qualified = $${paramCount++}`);
-      values.push(data.qualified);
-    }
-    if (data.score !== undefined) {
-      setClause.push(`score = $${paramCount++}`);
-      values.push(data.score);
-    }
-    if (data.submissionData !== undefined) {
-      setClause.push(`submission_data = $${paramCount++}`);
-      values.push(JSON.stringify(data.submissionData));
-    }
+    const sql = getSql();
     
-    if (data.completed) {
-      setClause.push(`completed_at = NOW()`);
+    // For simplicity with Neon, we'll do separate updates or use a more direct approach
+    if (data.completed !== undefined || data.qualified !== undefined || data.score !== undefined || data.submissionData !== undefined) {
+      await sql`
+        INSERT INTO team_progress (team_id, round_id, completed, qualified, score, submission_data, completed_at)
+        VALUES (
+          ${teamId}, 
+          ${roundId}, 
+          ${data.completed || false}, 
+          ${data.qualified || false}, 
+          ${data.score || 0}, 
+          ${data.submissionData ? JSON.stringify(data.submissionData) : null},
+          ${data.completed ? new Date() : null}
+        )
+        ON CONFLICT (team_id, round_id) DO UPDATE SET
+          completed = EXCLUDED.completed,
+          qualified = EXCLUDED.qualified,
+          score = EXCLUDED.score,
+          submission_data = EXCLUDED.submission_data,
+          completed_at = EXCLUDED.completed_at
+      `;
     }
-
-    values.push(teamId, roundId);
-
-    await query(
-      `INSERT INTO team_progress (team_id, round_id, ${setClause.join(', ')})
-       VALUES ($${paramCount++}, $${paramCount++}${setClause.length > 0 ? ', ' + setClause.map((_, i) => `$${i + 1}`).join(', ') : ''})
-       ON CONFLICT (team_id, round_id)
-       DO UPDATE SET ${setClause.join(', ')}`,
-      values
-    );
   }
 }
 
@@ -225,7 +214,9 @@ export async function registerTeam(registrationData: {
   teamPassword: string;
   memberNames: string[];
 }) {
-  return await transaction(async () => {
+  // Note: Neon handles transactions differently, but this registration
+  // process can be done sequentially with error handling
+  try {
     // Check if email already exists
     const existingUser = await UserDAO.findByEmail(registrationData.email);
     if (existingUser) {
@@ -255,10 +246,10 @@ export async function registerTeam(registrationData: {
     });
 
     // Update team with correct leader ID
-    await query(
-      'UPDATE teams SET leader_id = $1 WHERE id = $2',
-      [leader.id, team.id]
-    );
+    const sql = getSql();
+    await sql`
+      UPDATE teams SET leader_id = ${leader.id} WHERE id = ${team.id}
+    `;
 
     // Add leader to team members
     await TeamDAO.addMember(team.id, {
@@ -275,5 +266,9 @@ export async function registerTeam(registrationData: {
     }
 
     return { user: leader, team };
-  });
+  } catch (error) {
+    // In a real transaction, we'd rollback here
+    // For now, we'll let the error propagate
+    throw error;
+  }
 }

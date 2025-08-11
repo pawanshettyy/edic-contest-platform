@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, isDatabaseConnected } from '@/lib/database';
+import { getSql, isDatabaseConnected } from '@/lib/database';
 
 interface DatabaseTeam {
   team_id: number;
@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
 
     if (type === 'online') {
       // Return combined online scores (quiz + voting)
-      const teamsData = await query(`
+      const sql = getSql();
+      const teamsData = await sql`
         SELECT 
           t.id as team_id,
           t.team_name,
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
         FROM teams t
         WHERE t.status != 'disqualified'
         ORDER BY online_score DESC, t.team_name ASC
-      `);
+      `;
 
       const onlineScoreboard = (teamsData as DatabaseTeam[]).map((team, index) => ({
         teamId: team.team_id,
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         type: 'online',
-        teams: onlineScoreboard,
+        scoreboard: onlineScoreboard,
         totalTeams: onlineScoreboard.length,
         lastUpdated: new Date().toISOString(),
         summary: {
@@ -69,7 +70,8 @@ export async function GET(request: NextRequest) {
 
     if (type === 'final') {
       // Return final comprehensive scores (quiz + voting + offline)
-      const teamsData = await query(`
+      const sql = getSql();
+      const teamsData = await sql`
         SELECT 
           t.id as team_id,
           t.team_name,
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
         FROM teams t
         WHERE t.status != 'disqualified'
         ORDER BY total_score DESC, t.team_name ASC
-      `);
+      `;
 
       const finalScoreboard = (teamsData as DatabaseTeam[]).map((team, index) => ({
         teamId: team.team_id,
@@ -99,7 +101,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         type: 'final',
-        teams: finalScoreboard,
+        scoreboard: finalScoreboard,
         totalTeams: finalScoreboard.length,
         lastUpdated: new Date().toISOString(),
         summary: {
@@ -115,7 +117,8 @@ export async function GET(request: NextRequest) {
 
     if (type === 'quiz') {
       // Return only quiz scores
-      const teamsData = await query(`
+      const sql = getSql();
+      const teamsData = await sql`
         SELECT 
           t.id as team_id,
           t.team_name,
@@ -124,7 +127,7 @@ export async function GET(request: NextRequest) {
         FROM teams t
         WHERE t.status != 'disqualified'
         ORDER BY quiz_score DESC, t.team_name ASC
-      `);
+      `;
 
       const quizScoreboard = (teamsData as DatabaseTeam[]).map((team, index) => ({
         teamId: team.team_id,
@@ -137,7 +140,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         type: 'quiz',
-        teams: quizScoreboard,
+        scoreboard: quizScoreboard,
         totalTeams: quizScoreboard.length,
         lastUpdated: new Date().toISOString(),
         summary: {
@@ -150,7 +153,8 @@ export async function GET(request: NextRequest) {
 
     if (type === 'voting') {
       // Return only voting scores
-      const teamsData = await query(`
+      const sql = getSql();
+      const teamsData = await sql`
         SELECT 
           t.id as team_id,
           t.team_name,
@@ -159,7 +163,7 @@ export async function GET(request: NextRequest) {
         FROM teams t
         WHERE t.status != 'disqualified'
         ORDER BY voting_score DESC, t.team_name ASC
-      `);
+      `;
 
       const votingScoreboard = (teamsData as DatabaseTeam[]).map((team, index) => ({
         teamId: team.team_id,
@@ -172,7 +176,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         type: 'voting',
-        teams: votingScoreboard,
+        scoreboard: votingScoreboard,
         totalTeams: votingScoreboard.length,
         lastUpdated: new Date().toISOString(),
         summary: {
@@ -184,7 +188,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: return all comprehensive data
-    const teamsData = await query(`
+    const sql = getSql();
+    const teamsData = await sql`
       SELECT 
         t.id as team_id,
         t.team_name,
@@ -199,7 +204,7 @@ export async function GET(request: NextRequest) {
       FROM teams t
       WHERE t.status != 'disqualified'
       ORDER BY total_score DESC, quiz_score DESC, voting_score DESC, t.team_name ASC
-    `);
+    `;
 
     const completeScoreboard = (teamsData as DatabaseTeam[]).map((team, index) => ({
       teamId: team.team_id,
@@ -218,7 +223,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       type: 'complete',
-      teams: completeScoreboard,
+      scoreboard: completeScoreboard,
       totalTeams: completeScoreboard.length,
       lastUpdated: new Date().toISOString(),
       summary: {
@@ -241,7 +246,7 @@ export async function GET(request: NextRequest) {
         success: false, 
         error: 'Failed to fetch scoreboard data',
         type: type,
-        teams: [],
+        scoreboard: [],
         totalTeams: 0
       },
       { status: 500 }

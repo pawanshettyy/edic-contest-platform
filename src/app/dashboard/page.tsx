@@ -2,13 +2,13 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SimpleButton } from '@/components/ui/simple-button';
 import { SimpleCard, SimpleCardContent, SimpleCardDescription, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/common/ThemeToggle';
-import { Users, Trophy, Clock, Shield, HelpCircle, Vote, BarChart3 } from 'lucide-react';
+import { Users, Trophy, Shield, HelpCircle, Vote, BarChart3 } from 'lucide-react';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 export default function DashboardPage() {
   const { user, team, isAuthenticated, isLoading, signOut } = useAuth();
   const router = useRouter();
+  const [hasAttemptedQuiz, setHasAttemptedQuiz] = useState(false);
+  const [checkingQuizStatus, setCheckingQuizStatus] = useState(true);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -23,91 +25,62 @@ export default function DashboardPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Simulate team status - in real app this would come from API/context
-  const getTeamStatus = () => {
-    // This would be dynamic based on actual contest results
-    const currentRound = 1; // This would come from contest state
-    const teamResults = {
-      round1Completed: true,
-      round1Qualified: true, // Change this to false to test "not qualified" state
-      round2Completed: false,
-      round2Qualified: false,
-      finalRank: null, // This would be set after all rounds complete
-      finalScore: null
+  // Check if team has attempted quiz to determine current round
+  useEffect(() => {
+    const checkQuizAttempt = async () => {
+      if (!team?.id) return;
+      
+      try {
+        const response = await fetch('/api/quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check_attempt', teamId: team.id }),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasAttemptedQuiz(data.hasAttempted || false);
+        }
+      } catch (error) {
+        console.error('Error checking quiz attempt:', error);
+        setHasAttemptedQuiz(false);
+      } finally {
+        setCheckingQuizStatus(false);
+      }
     };
 
-    if (teamResults.finalRank !== null) {
-      // Contest completed - show final results
-      return {
-        status: `#${teamResults.finalRank} Place`,
-        description: `Final Score: ${teamResults.finalScore}`,
-        color: teamResults.finalRank <= 3 ? "text-green-600" : "text-blue-600"
-      };
-    } else if (teamResults.round1Completed && currentRound === 1) {
-      // Round 1 completed, show qualification status
-      if (teamResults.round1Qualified) {
-        return {
-          status: "Qualified ✨",
-          description: "Good luck in next round!",
-          color: "text-green-600"
-        };
-      } else {
-        return {
-          status: "Not Qualified",
-          description: "Better luck next time!",
-          color: "text-red-600"
-        };
-      }
-    } else {
-      // Default ready state
-      return {
-        status: "Ready",
-        description: "Current status",
-        color: "text-blue-600"
-      };
+    if (isAuthenticated && team) {
+      checkQuizAttempt();
     }
-  };
+  }, [isAuthenticated, team]);
 
   const getCurrentRoundInfo = () => {
-    // This would be dynamic based on actual contest state
-    const teamResults = {
-      round1Completed: true,
-      round1Qualified: true,
-      round2Completed: false,
-      round2Qualified: false,
-      contestCompleted: false
-    };
-
-    if (teamResults.contestCompleted) {
-      return {
-        round: "Contest Complete",
-        phase: "Final Results"
-      };
-    } else if (teamResults.round1Completed && teamResults.round1Qualified) {
+    // Dynamic round determination based on quiz completion
+    if (hasAttemptedQuiz) {
       return {
         round: "Round 2",
         phase: "Voting Phase"
       };
-    } else if (teamResults.round1Completed && !teamResults.round1Qualified) {
-      return {
-        round: "Eliminated",
-        phase: "Thank you for participating"
-      };
     } else {
       return {
-        round: "Round 1",
+        round: "Round 1", 
         phase: "Quiz Phase"
       };
     }
   };
 
-  const teamStatus = getTeamStatus();
   const roundInfo = getCurrentRoundInfo();
 
-  if (isLoading) {
+  if (isLoading || checkingQuizStatus) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-gray-100"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-gray-100 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">
+            {checkingQuizStatus ? 'Checking quiz status...' : 'Loading dashboard...'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -166,7 +139,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <SimpleCard>
               <SimpleCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <SimpleCardTitle className="text-sm font-medium">Team</SimpleCardTitle>
@@ -207,21 +180,6 @@ export default function DashboardPage() {
                 </p>
               </SimpleCardContent>
             </SimpleCard>
-
-            <SimpleCard>
-              <SimpleCardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <SimpleCardTitle className="text-sm font-medium">Status</SimpleCardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </SimpleCardHeader>
-              <SimpleCardContent>
-                <div className={`text-2xl font-bold ${teamStatus.color}`}>
-                  {teamStatus.status}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {teamStatus.description}
-                </p>
-              </SimpleCardContent>
-            </SimpleCard>
           </div>
 
           {/* Team Information */}
@@ -240,8 +198,8 @@ export default function DashboardPage() {
                       Team Members
                     </h4>
                     <div className="space-y-2">
-                      {team.members.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between">
+                      {team.members.map((member, index) => (
+                        <div key={`${member.id || 'member'}-${index}`} className="flex items-center justify-between">
                           <span className="text-sm text-gray-700 dark:text-gray-300">
                             {member.name}
                           </span>
@@ -272,16 +230,14 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Round 1 (Quiz)</span>
-                        <span className={`text-sm font-medium ${teamStatus.color}`}>
-                          {teamStatus.status.includes('Qualified') ? '✓ Qualified' : 
-                           teamStatus.status.includes('Not Qualified') ? '✗ Not Qualified' : 
-                           'In Progress'}
+                        <span className={`text-sm font-medium ${hasAttemptedQuiz ? 'text-green-600' : 'text-blue-600'}`}>
+                          {hasAttemptedQuiz ? '✓ Completed' : 'In Progress'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Round 2 (Voting)</span>
                         <span className="text-sm text-gray-500">
-                          {teamStatus.status.includes('Qualified') ? 'Available' : 'Locked'}
+                          {hasAttemptedQuiz ? 'Available' : 'Locked'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">

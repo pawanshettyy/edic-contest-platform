@@ -26,7 +26,7 @@ export function isDatabaseConnected(): boolean {
   return !!process.env.DATABASE_URL;
 }
 
-// Database query wrapper with error handling
+// Database query wrapper with error handling - Simplified for Neon compatibility
 export async function query<T = unknown>(text: string, params?: unknown[]): Promise<T[]> {
   if (!isDatabaseConnected()) {
     console.error('❌ DATABASE_URL not configured');
@@ -36,29 +36,12 @@ export async function query<T = unknown>(text: string, params?: unknown[]): Prom
   try {
     const sql = getSql();
     
-    // For Neon serverless, convert parameterized queries to template literals
-    if (params && params.length > 0) {
-      // Build the query using template literal syntax
-      let formattedQuery = text;
-      
-      // Replace $1, $2, etc. with actual parameter values
-      params.forEach((param, index) => {
-        const placeholder = `$${index + 1}`;
-        formattedQuery = formattedQuery.replace(placeholder, '?PARAM' + index + '?');
-      });
-      
-      // Split the query by parameter placeholders
-      const parts = formattedQuery.split(/\?PARAM\d+\?/);
-      const strings = parts.map((part, i) => part + (i < params.length ? '' : ''));
-      
-      // Create a template literal call
-      const result = await sql(strings as unknown as TemplateStringsArray, ...params);
-      return result as T[];
-    } else {
-      // For simple queries without parameters, use template literal
-      const result = await sql`${text}`;
-      return result as T[];
-    }
+    console.log('⚠️ Legacy query() function called. Consider migrating to template literals.');
+    console.log('Query:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
+    console.log('Params:', params);
+    
+    // For now, throw an error to identify where legacy calls are being made
+    throw new Error(`Legacy query() function not supported with Neon. Please use template literals: sql\`...\` instead of query("...", [...])`);
   } catch (error) {
     console.error('Database query error:', error);
     throw error;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { query, isDatabaseConnected } from '@/lib/database';
+import { getSql, isDatabaseConnected } from '@/lib/database';
 
 interface AdminTokenPayload {
   adminId: string;
@@ -79,12 +79,17 @@ export async function GET(request: NextRequest) {
         throw new Error('Database not configured');
       }
       
-      const sessions = await query(
-        'SELECT * FROM admin_sessions WHERE session_token = $1 AND expires_at > NOW() LIMIT 1',
-        [token]
-      );
+      // Get SQL instance
+      const sql = getSql();
       
-      if (!sessions || sessions.length === 0) {
+      const sessions = await sql`
+        SELECT * FROM admin_sessions 
+        WHERE session_token = ${token} 
+        AND expires_at > NOW() 
+        LIMIT 1
+      `;
+      
+      if (!sessions || (sessions as unknown[]).length === 0) {
         return NextResponse.json(
           { error: 'Session expired or invalid' },
           { status: 401 }
@@ -92,26 +97,30 @@ export async function GET(request: NextRequest) {
       }
       
       // Get current admin user data
-      const adminUsers = await query(
-        'SELECT id, username, email, role, permissions, is_active, last_login, created_at FROM admin_users WHERE id = $1 AND is_active = true LIMIT 1',
-        [decoded.adminId]
-      );
+      const adminUsers = await sql`
+        SELECT id, username, email, role, permissions, is_active, last_login, created_at 
+        FROM admin_users 
+        WHERE id = ${decoded.adminId} 
+        AND is_active = true 
+        LIMIT 1
+      `;
       
-      if (!adminUsers || adminUsers.length === 0) {
+      if (!adminUsers || (adminUsers as AdminUser[]).length === 0) {
         return NextResponse.json(
           { error: 'Admin user not found or inactive' },
           { status: 401 }
         );
       }
       
-      const adminUser = adminUsers[0] as AdminUser;
+      const adminUser = (adminUsers as AdminUser[])[0];
       
       // Update session last activity (optional - you can skip this if you want)
       try {
-        await query(
-          'UPDATE admin_sessions SET last_activity = NOW() WHERE session_token = $1',
-          [token]
-        );
+        await sql`
+          UPDATE admin_sessions 
+          SET last_activity = NOW() 
+          WHERE session_token = ${token}
+        `;
       } catch (updateError) {
         console.warn('Could not update session activity:', updateError);
       }

@@ -155,7 +155,7 @@ export function ResultsComponent({ teamId }: ResultsComponentProps) {
 
   const currentResults = activeTab === 'online' ? onlineResults : finalResults;
 
-  if (!currentResults) {
+  if (!currentResults || !currentResults.scoreboard) {
     return (
       <SimpleAlert>
         <SimpleAlertDescription>

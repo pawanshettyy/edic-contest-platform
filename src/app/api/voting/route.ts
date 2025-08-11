@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { query } from '@/lib/database';
+import { getSql } from '@/lib/database';
 
 type VotingPhase = 'waiting' | 'pitching' | 'voting' | 'break' | 'completed';
 
@@ -76,22 +76,24 @@ const phaseControlSchema = z.object({
 // Get or create voting session
 async function getVotingSession(): Promise<VotingSession | null> {
   try {
+    const sql = getSql();
+    
     // Get active voting session
-    const sessionResult = await query(`
+    const sessionResult = await sql`
       SELECT * FROM voting_sessions
       WHERE is_active = true
       ORDER BY created_at DESC
       LIMIT 1
-    `);
+    `;
 
-    if (sessionResult.length === 0) {
+    if ((sessionResult as any[]).length === 0) {
       return null;
     }
 
-    const session = sessionResult[0];
+    const session = (sessionResult as any[])[0];
 
     // Get teams for this session
-    const teamsResult = await query(`
+    const teamsResult = await sql`
       SELECT 
         t.id as team_id,
         t.team_name,
@@ -100,9 +102,11 @@ async function getVotingSession(): Promise<VotingSession | null> {
         COALESCE(vt.downvotes_used, 0) as downvotes_used,
         CASE WHEN vs.current_presenting_team = t.id THEN true ELSE false END as is_currently_presenting
       FROM teams t
-      LEFT JOIN voting_teams vt ON t.id = vt.team_id AND vt.session_id = $1
-      JOIN voting_sessions vs ON vs.id = $1
+      LEFT JOIN voting_teams vt ON t.id = vt.team_id AND vt.session_id = ${session.id}
+      JOIN voting_sessions vs ON vs.id = ${session.id}
       WHERE t.status = 'active'
+      ORDER BY t.presentation_order
+    `;
       ORDER BY t.presentation_order ASC
     `, [(session as VotingSessionRecord).id]);
 

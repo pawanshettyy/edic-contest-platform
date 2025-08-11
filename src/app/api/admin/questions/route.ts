@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/database';
+import { getSql } from '@/lib/database';
 
 interface QuizOption {
   id?: string;
@@ -42,22 +42,24 @@ interface DatabaseOption {
 // GET - Fetch all questions with options
 export async function GET(): Promise<NextResponse> {
   try {
+    const sql = getSql();
+    
     // Fetch all questions
-    const questionsResult = await query(`
+    const questionsResult = await sql`
       SELECT 
         id, question, question_type, difficulty, 
         time_limit, explanation, is_active, created_at, updated_at
       FROM quiz_questions 
       ORDER BY created_at DESC
-    `);
+    `;
 
     // Fetch all options for all questions
-    const optionsResult = await query(`
+    const optionsResult = await sql`
       SELECT 
         id, question_id, option_text, points, is_correct, option_order, category
       FROM quiz_options 
       ORDER BY question_id, option_order
-    `);
+    `;
 
     // Group options by question_id
     const optionsByQuestion = (optionsResult as DatabaseOption[]).reduce((acc, option) => {
@@ -94,10 +96,11 @@ export async function GET(): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const data: QuizQuestion = await request.json();
+    const sql = getSql();
 
     // Check if maximum questions limit is reached
-    const countResult = await query('SELECT COUNT(*) as count FROM quiz_questions') as unknown as { rows: { count: string }[] };
-    const questionCount = parseInt(countResult.rows[0].count);
+    const countResult = await sql`SELECT COUNT(*) as count FROM quiz_questions`;
+    const questionCount = parseInt(String((countResult as any[])[0].count));
     
     if (questionCount >= 15) {
       return NextResponse.json(
@@ -132,36 +135,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Create question and options (converted from transaction for Neon serverless)
     try {
       // Insert question
-      const questionResult = await query(`
+      const questionResult = await sql`
         INSERT INTO quiz_questions (
           question, question_type, 
           explanation, is_active
-        ) VALUES ($1, $2, $3, $4)
+        ) VALUES (${data.question.trim()}, ${data.question_type}, ${data.explanation?.trim() || ''}, ${data.is_active})
         RETURNING id
-      `, [
-        data.question.trim(),
-        data.question_type,
-        data.explanation?.trim() || '',
-        data.is_active
-      ]);
+      `;
 
-      const questionId = (questionResult[0] as { id: string }).id;
+      const questionId = (questionResult as any[])[0].id;
 
       // Insert options
       for (const option of data.options) {
         if (option.option_text.trim()) {
-          await query(`
+          await sql`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-          `, [
-            questionId,
-            option.option_text.trim(),
-            option.points || 0,
-            option.is_correct,
-            option.option_order,
-            option.category || 'General'
-          ]);
+            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'General'})
+          `;
         }
       }
 
@@ -227,39 +218,28 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
 
     // Update question and options (converted from transaction for Neon serverless)
     try {
+      const sql = getSql();
+      
       // Update question
-      await query(`
+      await sql`
         UPDATE quiz_questions 
-        SET question = $1, question_type = $2, 
-            explanation = $3, 
-            is_active = $4, updated_at = NOW()
-        WHERE id = $5
-      `, [
-        data.question.trim(),
-        data.question_type,
-        data.explanation?.trim() || '',
-        data.is_active,
-        questionId
-      ]);
+        SET question = ${data.question.trim()}, question_type = ${data.question_type}, 
+            explanation = ${data.explanation?.trim() || ''}, 
+            is_active = ${data.is_active}, updated_at = NOW()
+        WHERE id = ${questionId}
+      `;
 
       // Delete existing options
-      await query('DELETE FROM quiz_options WHERE question_id = $1', [questionId]);
+      await sql`DELETE FROM quiz_options WHERE question_id = ${questionId}`;
 
       // Insert new options
       for (const option of data.options) {
         if (option.option_text.trim()) {
-          await query(`
+          await sql`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-          `, [
-            questionId,
-            option.option_text.trim(),
-            option.points || 0,
-            option.is_correct,
-            option.option_order,
-            option.category || 'General'
-          ]);
+            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'General'})
+          `;
         }
       }
 
@@ -304,12 +284,13 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
 
     const { is_active } = await request.json();
+    const sql = getSql();
 
-    await query(`
+    await sql`
       UPDATE quiz_questions 
-      SET is_active = $1, updated_at = NOW()
-      WHERE id = $2
-    `, [is_active, questionId]);
+      SET is_active = ${is_active}, updated_at = NOW()
+      WHERE id = ${questionId}
+    `;
 
     return NextResponse.json({
       success: true,
@@ -339,13 +320,14 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     }
 
     // Check if question exists and is not used in any submissions
-    const submissionCheck = await query(`
+    const sql = getSql();
+    const submissionCheck = await sql`
       SELECT COUNT(*) as count 
       FROM quiz_submissions 
-      WHERE question_id = $1
-    `, [questionId]);
+      WHERE question_id = ${questionId}
+    `;
 
-    const submissionCount = Number((submissionCheck[0] as { count: string }).count);
+    const submissionCount = Number((submissionCheck as any[])[0].count);
     
     if (submissionCount > 0) {
       return NextResponse.json(
@@ -355,7 +337,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     }
 
     // Delete question (options will be deleted due to CASCADE)
-    await query('DELETE FROM quiz_questions WHERE id = $1', [questionId]);
+    await sql`DELETE FROM quiz_questions WHERE id = ${questionId}`;
 
     return NextResponse.json({
       success: true,

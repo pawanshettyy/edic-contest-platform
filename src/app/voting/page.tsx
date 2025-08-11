@@ -10,15 +10,52 @@ import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert
 export default function VotingPage() {
   const { user, team, isAuthenticated, isLoading } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [hasAttemptedQuiz, setHasAttemptedQuiz] = useState(false);
+  const [checkingQuizStatus, setCheckingQuizStatus] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  // Check if team has attempted quiz
+  useEffect(() => {
+    const checkQuizAttempt = async () => {
+      if (!team?.id) return;
+      
+      try {
+        const response = await fetch('/api/quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'check_attempt', teamId: team.id }),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHasAttemptedQuiz(data.hasAttempted || false);
+        }
+      } catch (error) {
+        console.error('Error checking quiz attempt:', error);
+        setHasAttemptedQuiz(false);
+      } finally {
+        setCheckingQuizStatus(false);
+      }
+    };
+
+    if (isAuthenticated && team) {
+      checkQuizAttempt();
+    }
+  }, [isAuthenticated, team]);
+
+  if (!mounted || checkingQuizStatus) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-600 dark:text-gray-400">
+            {checkingQuizStatus ? 'Checking quiz status...' : 'Loading voting system...'}
+          </p>
+        </div>
       </div>
     );
   }
@@ -58,6 +95,47 @@ export default function VotingPage() {
                 className="block w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:border-gray-400 transition-colors"
               >
                 Create Team Account
+              </a>
+            </div>
+          </SimpleCardContent>
+        </SimpleCard>
+      </div>
+    );
+  }
+
+  // Check if quiz has been attempted - voting locked until quiz completion
+  if (!hasAttemptedQuiz) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <SimpleCard className="max-w-md w-full mx-4">
+          <SimpleCardHeader className="text-center">
+            <Timer className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+            <SimpleCardTitle>Quiz Required</SimpleCardTitle>
+            <SimpleCardDescription>
+              You must complete the quiz in Round 1 before accessing the voting system.
+            </SimpleCardDescription>
+          </SimpleCardHeader>
+          <SimpleCardContent className="text-center">
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  <strong>Team:</strong> {team.name}
+                </p>
+                <p className="text-sm text-blue-600 dark:text-blue-400 mt-1">
+                  Complete the quiz to unlock Round 2 voting
+                </p>
+              </div>
+              <a
+                href="/quiz"
+                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Take Quiz Now
+              </a>
+              <a
+                href="/dashboard"
+                className="block w-full px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 transition-colors"
+              >
+                Back to Dashboard
               </a>
             </div>
           </SimpleCardContent>
