@@ -9,7 +9,12 @@
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "deploy:prep": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-prep.ps1",
+    "seed:questions": "node ./scripts/seed-questions.mjs",
+    "db:migrate": "echo 'Run production-migration.sql on your production database'",
+    "vercel:build": "next build",
+    "postbuild": "echo 'Build completed successfully for Vercel deployment'"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",

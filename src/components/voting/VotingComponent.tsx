@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SimpleCard, SimpleCardContent, SimpleCardHeader, SimpleCardTitle } from '@/components/ui/SimpleCard';
 import { SimpleButton } from '@/components/ui/simple-button';
 import { SimpleAlert, SimpleAlertDescription } from '@/components/ui/SimpleAlert';
-import { Timer, Users, ArrowUp, ArrowDown, Clock, Trophy, PlayCircle, PauseCircle, Shield } from 'lucide-react';
+import { Timer, Users, ArrowUp, ArrowDown, Clock, Trophy, PlayCircle, PauseCircle, Shield, Vote } from 'lucide-react';
 import { VotingSession, VotingPhase, VoteType } from '@/types/voting-enhanced';
 import { useAuth } from '@/context/AuthContext';
 
@@ -35,14 +35,26 @@ export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
       
       if (data.success) {
         setSession(data.session);
-        setTimeRemaining(data.session.timeRemaining || 0);
+        setTimeRemaining(data.session?.timeRemaining || 0);
         setError(null);
       } else {
-        setError(data.error || 'Failed to fetch voting session');
+        // Check if voting is disabled
+        if (data.phase === 'disabled') {
+          setSession(null);
+          setError(null); // Don't show error for disabled voting
+        } else {
+          setError(data.error || 'Failed to fetch voting session');
+        }
       }
     } catch (err) {
-      setError('Failed to connect to voting system');
-      console.error('Voting fetch error:', err);
+      // Only log error if it's not a network connectivity issue
+      const error = err as Error;
+      if (error.name !== 'TypeError' || !error.message.includes('Failed to fetch')) {
+        console.error('Voting fetch error:', err);
+      }
+      // Don't set error state for network issues when voting is disabled
+      setError(null);
+      setSession(null);
     } finally {
       setLoading(false);
     }
@@ -100,7 +112,8 @@ export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
   // Initial load and periodic refresh
   useEffect(() => {
     fetchSession();
-    const interval = setInterval(fetchSession, 5000); // Refresh every 5 seconds
+    // Reduced polling frequency since voting is currently disabled
+    const interval = setInterval(fetchSession, 30000); // Refresh every 30 seconds instead of 5
     return () => clearInterval(interval);
   }, [fetchSession]);
 
@@ -171,7 +184,7 @@ export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
   };
 
   const canVote = (targetTeamId: string) => {
-    if (!session) return false;
+    if (!session || !session.teams) return false;
     
     const myTeam = session.teams.find(t => t.teamId === teamId);
     const targetTeam = session.teams.find(t => t.teamId === targetTeamId);
@@ -193,13 +206,13 @@ export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
   };
 
   const canDownvote = () => {
-    if (!session) return false;
+    if (!session || !session.teams) return false;
     const myTeam = session.teams.find(t => t.teamId === teamId);
     return myTeam ? myTeam.downvotesUsed < 3 : false;
   };
 
   const getCurrentPresentingTeam = () => {
-    if (!session) return null;
+    if (!session || !session.teams) return null;
     return session.teams.find(t => t.teamId === session.currentPresentingTeam);
   };
 
@@ -229,11 +242,21 @@ export function VotingComponent({ teamId: propTeamId }: VotingComponentProps) {
 
   if (!session) {
     return (
-      <SimpleAlert>
-        <SimpleAlertDescription>
-          No active voting session found. Please wait for the session to begin.
-        </SimpleAlertDescription>
-      </SimpleAlert>
+      <SimpleCard className="w-full max-w-2xl mx-auto">
+        <SimpleCardHeader>
+          <SimpleCardTitle className="flex items-center space-x-2">
+            <Vote className="h-5 w-5 text-gray-500" />
+            <span>Voting Session</span>
+          </SimpleCardTitle>
+        </SimpleCardHeader>
+        <SimpleCardContent>
+          <SimpleAlert>
+            <SimpleAlertDescription>
+              Voting is currently disabled. This feature will be available during the contest.
+            </SimpleAlertDescription>
+          </SimpleAlert>
+        </SimpleCardContent>
+      </SimpleCard>
     );
   }
 

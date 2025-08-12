@@ -163,7 +163,23 @@ export default function QuizComponent({ onComplete }: QuizComponentProps) {
           setQuestions(data.questions);
         }
       } else {
-        setError('Failed to fetch questions: ' + data.error);
+        // Check if it's a completion message
+        if (data.completed || data.alreadySubmitted) {
+          setQuizCompleted(true);
+          setQuizResult({
+            success: true,
+            memberScore: 0,
+            teamTotalScore: 0,
+            membersCompleted: 1,
+            maxPossibleScore: 100,
+            questionsAnswered: 0,
+            memberApproachScores: { capital: 0, marketing: 0, strategy: 0, team: 0 },
+            teamApproachScores: { capital: 0, marketing: 0, strategy: 0, team: 0 },
+            message: data.error
+          });
+        } else {
+          setError('Failed to fetch questions: ' + data.error);
+        }
       }
     } catch (error) {
       setError('Error fetching questions. Please try again.');

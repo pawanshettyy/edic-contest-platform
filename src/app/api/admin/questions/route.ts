@@ -7,7 +7,7 @@ interface QuizOption {
   points: number;
   is_correct: boolean;
   option_order: number;
-  category: string; // Category for this specific option
+  category: string;
 }
 
 interface QuizQuestion {
@@ -32,7 +32,7 @@ interface DatabaseOption {
   points: number;
   is_correct: boolean;
   option_order: number;
-  category: string; // Category for this specific option
+  category: string;
 }
 
 // GET - Fetch all questions with options
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           await sql`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
-            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'General'})
+            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'Capital'})
           `;
         }
       }
@@ -231,7 +231,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
           await sql`
             INSERT INTO quiz_options (
               question_id, option_text, points, is_correct, option_order, category
-            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'General'})
+            ) VALUES (${questionId}, ${option.option_text.trim()}, ${option.points || 0}, ${option.is_correct}, ${option.option_order}, ${option.category || 'Capital'})
           `;
         }
       }

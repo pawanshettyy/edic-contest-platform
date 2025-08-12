@@ -358,7 +358,6 @@ export default function AdminQuestionsPage() {
                   <div className="flex-1">
                     <h3 className="font-medium text-lg">{question.question}</h3>
                     <div className="flex gap-4 text-sm text-gray-600 mt-1">
-                      <span>Type: MCQ</span>
                       <span>Category: {question.category}</span>
                       <span className={question.is_active ? 'text-green-600' : 'text-red-600'}>
                         {question.is_active ? 'Active' : 'Inactive'}

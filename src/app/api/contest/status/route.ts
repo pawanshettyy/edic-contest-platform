@@ -9,9 +9,10 @@ export async function GET() {
     const configResult = await sql`
       SELECT 
         contest_active,
-        quiz_active,
-        voting_active,
-        quiz_time_limit_minutes
+        current_phase,
+        quiz_duration,
+        voting_duration,
+        updated_at
       FROM contest_config 
       LIMIT 1
     `;
@@ -29,10 +30,15 @@ export async function GET() {
 
     const config = (configResult as unknown[])[0] as {
       contest_active: boolean;
-      quiz_active: boolean;
-      voting_active: boolean;
-      quiz_time_limit_minutes: number;
+      current_phase: string;
+      quiz_duration: number;
+      voting_duration: number;
+      updated_at: string;
     };
+
+    // Determine quiz and voting status based on current phase
+    const quizActive = config.contest_active && config.current_phase === 'quiz';
+    const votingActive = config.contest_active && config.current_phase === 'voting';
 
     // Check if quiz was just disabled (for the 1-minute warning)
     const recentQuizDisable = await sql`
@@ -51,9 +57,11 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       contestActive: config.contest_active,
-      quizActive: config.quiz_active,
-      votingActive: config.voting_active,
-      quizTimeLimit: config.quiz_time_limit_minutes,
+      quizActive: quizActive,
+      votingActive: votingActive,
+      quizTimeLimit: config.quiz_duration,
+      currentPhase: config.current_phase,
+      votingDuration: config.voting_duration,
       quizAutoSubmitIn: timeToAutoSubmit,
       message: timeToAutoSubmit ? `Quiz will auto-submit in ${timeToAutoSubmit} seconds` : null
     });

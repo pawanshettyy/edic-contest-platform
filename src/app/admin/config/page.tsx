@@ -46,14 +46,12 @@ interface QuizOption {
   points: number;
   is_correct: boolean;
   option_order: number;
-  category: string; // Category for this specific option
+  category: string;
 }
 
 interface QuizQuestion {
   id?: string;
   question: string;
-  question_type: string;
-  explanation?: string;
   is_active: boolean;
   options: QuizOption[];
 }
@@ -202,39 +200,33 @@ export default function ContestConfigurationPage() {
           {
             id: 'q1',
             question: 'What is the primary goal of entrepreneurship?',
-            question_type: 'mcq',
             options: [
-              { id: 'q1_a', option_text: 'To make maximum profit', points: 5, is_correct: false, option_order: 1, category: 'Finance' },
-              { id: 'q1_b', option_text: 'To create value and solve problems', points: 10, is_correct: true, option_order: 2, category: 'Innovation' },
-              { id: 'q1_c', option_text: 'To become famous', points: -2, is_correct: false, option_order: 3, category: 'Personal' },
-              { id: 'q1_d', option_text: 'To work independently', points: 3, is_correct: false, option_order: 4, category: 'Leadership' }
+              { id: 'q1_a', option_text: 'To make maximum profit', points: 5, is_correct: false, option_order: 1, category: 'Capital' },
+              { id: 'q1_b', option_text: 'To create value and solve problems', points: 10, is_correct: true, option_order: 2, category: 'Strategy' },
+              { id: 'q1_c', option_text: 'To become famous', points: -2, is_correct: false, option_order: 3, category: 'Marketing' },
+              { id: 'q1_d', option_text: 'To work independently', points: 3, is_correct: false, option_order: 4, category: 'Team Building' }
             ],
-            explanation: 'Entrepreneurship is fundamentally about creating value and solving real-world problems.',
             is_active: true
           },
           {
             id: 'q2',
             question: 'Which of the following are key components of a business model canvas?',
-            question_type: 'multiple-select',
             options: [
               { id: 'q2_a', option_text: 'Value Propositions', points: 8, is_correct: true, option_order: 1, category: 'Strategy' },
               { id: 'q2_b', option_text: 'Customer Segments', points: 8, is_correct: true, option_order: 2, category: 'Marketing' },
-              { id: 'q2_c', option_text: 'Personal Hobbies', points: -5, is_correct: false, option_order: 3, category: 'Personal' },
-              { id: 'q2_d', option_text: 'Revenue Streams', points: 8, is_correct: true, option_order: 4, category: 'Finance' },
-              { id: 'q2_e', option_text: 'Key Partnerships', points: 8, is_correct: true, option_order: 5, category: 'Operations' }
+              { id: 'q2_c', option_text: 'Personal Hobbies', points: -5, is_correct: false, option_order: 3, category: 'Marketing' },
+              { id: 'q2_d', option_text: 'Revenue Streams', points: 8, is_correct: true, option_order: 4, category: 'Capital' },
+              { id: 'q2_e', option_text: 'Key Partnerships', points: 8, is_correct: true, option_order: 5, category: 'Team Building' }
             ],
-            explanation: 'The Business Model Canvas includes 9 key building blocks including Value Propositions, Customer Segments, Revenue Streams, and Key Partnerships.',
             is_active: true
           },
           {
             id: 'q3',
             question: 'Lean startup methodology emphasizes building a minimum viable product (MVP) first.',
-            question_type: 'true-false',
             options: [
-              { id: 'q3_a', option_text: 'True', points: 10, is_correct: true, option_order: 1, category: 'Innovation' },
-              { id: 'q3_b', option_text: 'False', points: -3, is_correct: false, option_order: 2, category: 'Traditional' }
+              { id: 'q3_a', option_text: 'True', points: 10, is_correct: true, option_order: 1, category: 'Strategy' },
+              { id: 'q3_b', option_text: 'False', points: -3, is_correct: false, option_order: 2, category: 'Strategy' }
             ],
-            explanation: 'The Lean Startup methodology advocates for building an MVP to test hypotheses quickly and cost-effectively.',
             is_active: true
           }
         ]
@@ -808,25 +800,17 @@ function QuestionBankTab() {
 
   const [formData, setFormData] = useState<QuizQuestion>({
     question: '',
-    question_type: 'mcq',
-    explanation: '',
     is_active: true,
     options: [
-      { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'General' },
-      { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'General' },
-      { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'General' },
-      { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'General' }
+      { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'Capital' },
+      { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'Capital' },
+      { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'Capital' },
+      { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'Capital' }
     ]
   });
 
   const categories = [
-    'General', 'Business Strategy', 'Marketing', 'Finance', 'Technology', 
-    'Leadership', 'Innovation', 'Entrepreneurship', 'Operations'
-  ];
-  const questionTypes = [
-    { value: 'mcq', label: 'Multiple Choice (Single Answer)' },
-    { value: 'multiple-select', label: 'Multiple Choice (Multiple Answers)' },
-    { value: 'true-false', label: 'True/False' }
+    'Capital', 'Marketing', 'Strategy', 'Team Building'
   ];
 
   useEffect(() => {
@@ -851,14 +835,12 @@ function QuestionBankTab() {
   const resetForm = () => {
     setFormData({
       question: '',
-      question_type: 'mcq',
-      explanation: '',
       is_active: true,
       options: [
-        { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'General' },
-        { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'General' },
-        { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'General' },
-        { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'General' }
+        { option_text: '', points: 0, is_correct: false, option_order: 1, category: 'Capital' },
+        { option_text: '', points: 0, is_correct: false, option_order: 2, category: 'Capital' },
+        { option_text: '', points: 0, is_correct: false, option_order: 3, category: 'Capital' },
+        { option_text: '', points: 0, is_correct: false, option_order: 4, category: 'Capital' }
       ]
     });
     setEditingQuestion(null);
@@ -884,6 +866,17 @@ function QuestionBankTab() {
       const hasCorrectAnswer = formData.options.some(opt => opt.is_correct && opt.option_text.trim());
       if (!hasCorrectAnswer) {
         setError('At least one option must be marked as correct and have text');
+        return;
+      }
+
+      // Validate that all options have different categories
+      const usedCategories = formData.options
+        .filter(opt => opt.option_text.trim())
+        .map(opt => opt.category);
+      const uniqueCategories = new Set(usedCategories);
+      
+      if (usedCategories.length !== uniqueCategories.size) {
+        setError('Each option must have a different category. Please select unique categories for all options.');
         return;
       }
 
@@ -958,7 +951,7 @@ function QuestionBankTab() {
       points: 0,
       is_correct: false,
       option_order: newOptions.length + 1,
-      category: 'General'
+      category: 'Capital'
     });
     setFormData({ ...formData, options: newOptions });
   };
@@ -975,6 +968,19 @@ function QuestionBankTab() {
       option.option_order = i + 1;
     });
     setFormData({ ...formData, options: newOptions });
+  };
+
+  // Helper function to get already used categories for current question
+  const getUsedCategories = (currentIndex: number): string[] => {
+    return formData.options
+      .map((option, index) => index !== currentIndex ? option.category : null)
+      .filter(category => category !== null) as string[];
+  };
+
+  // Helper function to check if a category is available for selection
+  const isCategoryAvailable = (category: string, currentIndex: number): boolean => {
+    const usedCategories = getUsedCategories(currentIndex);
+    return !usedCategories.includes(category);
   };
 
   if (loading) {
@@ -1045,21 +1051,6 @@ function QuestionBankTab() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="block text-sm font-medium mb-1">Question Type</Label>
-                    <select
-                      value={formData.question_type}
-                      onChange={(e) => setFormData({ ...formData, question_type: e.target.value })}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    >
-                      {questionTypes.map(type => (
-                        <option key={type.value} value={type.value}>{type.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -1073,18 +1064,16 @@ function QuestionBankTab() {
                 </div>
 
                 <div>
-                  <Label className="block text-sm font-medium mb-1">Explanation</Label>
-                  <textarea
-                    value={formData.explanation}
-                    onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 h-20 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    placeholder="Explanation for the correct answer (optional)..."
-                  />
-                </div>
-
-                <div>
                   <div className="flex justify-between items-center mb-2">
-                    <Label className="block text-sm font-medium">Answer Options *</Label>
+                    <div>
+                      <Label className="block text-sm font-medium">Answer Options *</Label>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Categories used: {new Set(formData.options.filter(opt => opt.option_text.trim()).map(opt => opt.category)).size}/4
+                        {formData.options.filter(opt => opt.option_text.trim()).length > new Set(formData.options.filter(opt => opt.option_text.trim()).map(opt => opt.category)).size && 
+                          <span className="text-red-500 ml-1">(Duplicates detected)</span>
+                        }
+                      </p>
+                    </div>
                     <SimpleButton
                       type="button"
                       onClick={addOption}
@@ -1122,7 +1111,17 @@ function QuestionBankTab() {
                           className="w-full border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                         >
                           {categories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
+                            <option 
+                              key={cat} 
+                              value={cat}
+                              disabled={!isCategoryAvailable(cat, index) && option.category !== cat}
+                              style={{
+                                color: !isCategoryAvailable(cat, index) && option.category !== cat ? '#9CA3AF' : 'inherit',
+                                backgroundColor: !isCategoryAvailable(cat, index) && option.category !== cat ? '#F3F4F6' : 'inherit'
+                              }}
+                            >
+                              {cat} {!isCategoryAvailable(cat, index) && option.category !== cat ? '(Used)' : ''}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -1185,7 +1184,6 @@ function QuestionBankTab() {
                       <div className="flex-1">
                         <h4 className="font-medium text-lg text-gray-900 dark:text-white">{question.question}</h4>
                         <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-400 mt-1">
-                          <span>Type: {question.question_type}</span>
                           <span className={question.is_active ? 'text-green-600' : 'text-red-600'}>
                             {question.is_active ? 'Active' : 'Inactive'}
                           </span>
@@ -1223,19 +1221,10 @@ function QuestionBankTab() {
                             option.is_correct ? 'bg-green-500' : 'bg-gray-300'
                           }`}></span>
                           <span className="flex-1">{option.option_text}</span>
-                          <span className="text-blue-600 dark:text-blue-400 ml-2 text-xs px-1 py-0.5 bg-blue-100 dark:bg-blue-900 rounded">
-                            {option.category}
-                          </span>
                           <span className="text-gray-500 dark:text-gray-400 ml-2">({option.points} pts)</span>
                         </div>
                       ))}
                     </div>
-                    
-                    {question.explanation && (
-                      <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
-                        <strong>Explanation:</strong> {question.explanation}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>

@@ -16,7 +16,6 @@ interface ApproachScores {
 interface DatabaseQuestion {
   id: string;
   question: string;
-  category: string;
   is_active: boolean;
   options: Record<string, unknown>[];
 }
@@ -68,8 +67,9 @@ export async function GET(request: NextRequest) {
       if (hasSubmitted) {
         return NextResponse.json({
           success: false,
-          error: 'Quiz already completed',
-          alreadySubmitted: true
+          error: 'You have already completed this quiz! Thank you for your participation.',
+          alreadySubmitted: true,
+          completed: true
         });
       }
     }
@@ -83,25 +83,19 @@ export async function GET(request: NextRequest) {
       SELECT 
         q.id,
         q.question,
-        q.category,
         q.is_active,
         json_agg(
           json_build_object(
             'id', o.id,
             'text', o.option_text,
-            'category', CASE 
-              WHEN o.order_index = 1 THEN 'capital'
-              WHEN o.order_index = 2 THEN 'marketing'
-              WHEN o.order_index = 3 THEN 'strategy'
-              WHEN o.order_index = 4 THEN 'team'
-              ELSE 'general'
-            END
-          ) ORDER BY o.order_index
+            'category', o.category,
+            'points', o.points
+          ) ORDER BY o.option_order
         ) as options
       FROM quiz_questions q
       LEFT JOIN quiz_options o ON q.id = o.question_id
-      WHERE q.is_active = true AND q.category IN ('Capital', 'Marketing', 'Strategy', 'Team Building')
-      GROUP BY q.id, q.question, q.category, q.is_active
+      WHERE q.is_active = true
+      GROUP BY q.id, q.question, q.is_active
       ORDER BY RANDOM()
       LIMIT 20
     ` as DatabaseResult;
@@ -123,7 +117,6 @@ export async function GET(request: NextRequest) {
         id: question.id,
         question: question.question,
         type: 'multiple_choice', // All questions are MCQ now
-        category: question.category,
         options: question.options || [],
         orderIndex: Math.floor(Math.random() * 1000)
       };
@@ -217,14 +210,7 @@ export async function POST(request: NextRequest) {
       for (const answer of answers) {
         // Get option details
         const optionResult = await sql`
-          SELECT o.is_correct,
-                 CASE 
-                   WHEN o.order_index = 1 THEN 'capital'
-                   WHEN o.order_index = 2 THEN 'marketing'
-                   WHEN o.order_index = 3 THEN 'strategy'
-                   WHEN o.order_index = 4 THEN 'team'
-                   ELSE 'general'
-                 END as category
+          SELECT o.is_correct, o.points, o.category
           FROM quiz_options o
           WHERE o.id = ${answer.selectedOptionId}
         ` as DatabaseResult;
@@ -233,15 +219,29 @@ export async function POST(request: NextRequest) {
           continue; // Skip invalid options
         }
 
-        const option = optionResult[0] as { is_correct: boolean; category: string };
-        const points = option.is_correct ? 10 : 0; // 10 points for correct, 0 for incorrect
+        const option = optionResult[0] as { is_correct: boolean; points: number; category: string };
+        const points = option.points || (option.is_correct ? 10 : 0); // Use option points or fallback
         memberScore += points;
 
-        // Add to approach scores
-        const category = option.category as keyof ApproachScores;
-        if (memberApproachScores[category] !== undefined) {
-          memberApproachScores[category] += points;
+        // Add to approach scores (map categories to lowercase keys)
+        let categoryKey: keyof ApproachScores;
+        switch (option.category.toLowerCase()) {
+          case 'capital':
+            categoryKey = 'capital';
+            break;
+          case 'marketing':
+            categoryKey = 'marketing';
+            break;
+          case 'strategy':
+            categoryKey = 'strategy';
+            break;
+          case 'team building':
+            categoryKey = 'team';
+            break;
+          default:
+            categoryKey = 'capital'; // Default fallback
         }
+        memberApproachScores[categoryKey] += points;
 
         // Record the response
         await sql`

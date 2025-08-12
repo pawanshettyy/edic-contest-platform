@@ -9,11 +9,11 @@ export async function GET() {
     const config = await sql`
       SELECT 
         contest_active,
-        quiz_active,
-        voting_active,
-        current_round,
+        current_phase,
+        quiz_duration,
+        voting_duration,
         CASE 
-          WHEN current_round >= 3 THEN true 
+          WHEN current_phase = 'results' THEN true 
           ELSE false 
         END as results_available
       FROM contest_config 
@@ -31,9 +31,9 @@ export async function GET() {
 
     const contestConfig = config[0] as {
       contest_active: boolean;
-      quiz_active: boolean;
-      voting_active: boolean;
-      current_round: number;
+      current_phase: string;
+      quiz_duration: number;
+      voting_duration: number;
       results_available: boolean;
     };
 
@@ -41,10 +41,10 @@ export async function GET() {
       success: true,
       resultsAvailable: contestConfig.results_available,
       contestActive: contestConfig.contest_active,
-      currentRound: contestConfig.current_round,
+      currentPhase: contestConfig.current_phase,
       message: contestConfig.results_available 
         ? 'Results are available' 
-        : 'Results will be available after all rounds are completed'
+        : 'Results will be available when contest enters results phase'
     });
 
   } catch (error) {
