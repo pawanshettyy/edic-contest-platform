@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { isDatabaseConnected, getSql } from '@/lib/database';
+import { executeWithRetry } from '@/lib/database-retry';
 
 // Validation schema
 const adminSignInSchema = z.object({
@@ -84,13 +85,15 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Find admin user in database using PostgreSQL
+    // Find admin user in database using PostgreSQL with retry logic
     const sql = getSql();
-    const adminUsers = await sql`
-      SELECT * FROM admin_users 
-      WHERE username = ${validatedData.username} AND is_active = true 
-      LIMIT 1
-    ` as AdminUser[];
+    const adminUsers = await executeWithRetry(async () => {
+      return await sql`
+        SELECT * FROM admin_users 
+        WHERE username = ${validatedData.username} AND is_active = true 
+        LIMIT 1
+      ` as AdminUser[];
+    }, { maxRetries: 3, delayMs: 1000 });
     
     if (!adminUsers || adminUsers.length === 0) {
       console.error('❌ No admin users found');
@@ -177,7 +180,9 @@ export async function POST(request: NextRequest) {
     console.log('✅ Password validation successful');
     
     // Update last login
-    await sql`UPDATE admin_users SET last_login = NOW() WHERE id = ${adminUser.id}`;
+    await executeWithRetry(async () => {
+      return await sql`UPDATE admin_users SET last_login = NOW() WHERE id = ${adminUser.id}`;
+    });
     
     // Create session token
     const sessionToken = jwt.sign(
@@ -196,10 +201,12 @@ export async function POST(request: NextRequest) {
     expiresAt.setHours(expiresAt.getHours() + 8);
     
     try {
-      await sql`
-        INSERT INTO admin_sessions (admin_user_id, session_token, expires_at)
-        VALUES (${adminUser.id}, ${sessionToken}, ${expiresAt.toISOString()})
-      `;
+      await executeWithRetry(async () => {
+        return await sql`
+          INSERT INTO admin_sessions (admin_user_id, session_token, expires_at)
+          VALUES (${adminUser.id}, ${sessionToken}, ${expiresAt.toISOString()})
+        `;
+      });
       console.log('✅ Session stored in database successfully');
     } catch (sessionError) {
       console.log('⚠️ Failed to store session in database:', sessionError);
@@ -208,10 +215,12 @@ export async function POST(request: NextRequest) {
     
     // Log admin login
     try {
-      await sql`
-        INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
-        VALUES (${adminUser.id}, 'admin_login', ${JSON.stringify({ username: adminUser.username })}, ${clientIp})
-      `;
+      await executeWithRetry(async () => {
+        return await sql`
+          INSERT INTO admin_logs (admin_user_id, action, details, ip_address)
+          VALUES (${adminUser.id}, 'admin_login', ${JSON.stringify({ username: adminUser.username })}, ${clientIp})
+        `;
+      });
       console.log('✅ Admin login logged successfully');
     } catch (logError) {
       console.log('⚠️ Failed to log admin login:', logError);

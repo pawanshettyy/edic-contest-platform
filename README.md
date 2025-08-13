@@ -4,6 +4,8 @@ A comprehensive contest management platform for entrepreneurship competitions. B
 
 ![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-green.svg)
 ![Next.js](https://img.shields.io/badge/next.js-15.4.4-blueviolet.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-100%25-blue.svg)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-blue.svg)
 
 ## 🚀 Quick Start
 
@@ -101,9 +103,11 @@ Visit http://localhost:3000 to see the application.
 ├── quiz_questions (question bank)
 ├── quiz_options (MCQ options)
 ├── quiz_responses (team answers)
-├── voting_items (presentation submissions)
-├── team_votes (voting results)
-└── contest_config (system configuration)
+├── voting_sessions (voting management)
+├── votes (voting results)
+├── contest_config (system configuration)
+├── audit_logs (security monitoring)
+└── rate_limits (abuse prevention)
 ```
 
 ## 🛠️ Development
@@ -115,9 +119,10 @@ npm run dev          # Start development server
 npm run build        # Build for production
 npm run start        # Start production server
 npm run lint         # Run ESLint
+npm run lint:fix     # Fix linting issues
 npm run type-check   # Check TypeScript types
-npm run setup:production   # Set up production database
-npm run setup:development  # Set up development database
+npm run deploy:prep  # Prepare for deployment
+npm run seed:questions # Seed quiz questions
 ```
 
 ### Environment Variables
@@ -141,24 +146,23 @@ QUESTIONS_PER_QUIZ=15
 REGISTRATION_OPEN=true
 ```
 
-## 🚀 Deployment
+## 🚀 Production Deployment
 
-### Production Deployment (Vercel - Recommended)
+### Vercel Deployment (Recommended)
 
 1. **Deploy to Vercel**:
-
    ```bash
    npm install -g vercel
    vercel login
    vercel --prod
    ```
-2. **Set Environment Variables** in Vercel Dashboard:
 
+2. **Set Environment Variables** in Vercel Dashboard:
    - `DATABASE_URL` (your PostgreSQL connection string)
    - `JWT_SECRET` (generate a secure 32-character secret)
    - `NEXT_PUBLIC_APP_URL` (your domain)
-3. **Set up Production Database**:
 
+3. **Set up Production Database**:
    ```bash
    npm run setup:production
    ```
@@ -166,7 +170,6 @@ REGISTRATION_OPEN=true
 ### Alternative Deployment Options
 
 #### Docker
-
 ```dockerfile
 FROM node:18-alpine
 WORKDIR /app
@@ -178,12 +181,45 @@ CMD ["npm", "start"]
 ```
 
 #### Self-hosted
-
 ```bash
 npm run build
 npm run start
 # Application runs on port 3000
 ```
+
+## 🔐 Security & Production Checklist
+
+### Pre-Deployment Security
+
+- [ ] Generate new 64+ character JWT_SECRET
+- [ ] Set NODE_ENV=production
+- [ ] Configure proper DATABASE_URL with SSL
+- [ ] Set NEXT_PUBLIC_APP_URL to production domain
+- [ ] Remove development/debug environment variables
+
+### Database Security
+
+- [ ] Run security-schema.sql for audit logging
+- [ ] Create dedicated database user with minimal permissions
+- [ ] Enable SSL connections only (sslmode=require)
+- [ ] Configure regular database backups
+- [ ] Remove test/sample data
+
+### Application Security
+
+- [ ] JWT secrets are cryptographically secure
+- [ ] All passwords are bcrypt hashed with salt rounds >= 12
+- [ ] Rate limiting is enabled for authentication endpoints
+- [ ] HTTPS is enforced
+- [ ] Content Security Policy is properly configured
+
+### Monitoring and Logging
+
+- [ ] Audit logging is enabled
+- [ ] Security monitoring dashboard is accessible to admins
+- [ ] Error tracking is configured
+- [ ] Log rotation is configured
+- [ ] No sensitive data is logged
 
 ## 🔧 Configuration
 
@@ -211,14 +247,12 @@ The platform includes a multi-admin system with role-based access:
 ### Database Providers
 
 #### Neon (Recommended)
-
 - Free PostgreSQL hosting
 - Serverless with auto-scaling
 - Built-in connection pooling
 - Easy setup with web dashboard
 
 #### Alternative Options
-
 - **Supabase**: Free tier with web interface
 - **Railway**: Simple deployment platform
 - **Local PostgreSQL**: For development
@@ -228,17 +262,16 @@ The platform includes a multi-admin system with role-based access:
 ### For Contest Organizers
 
 1. **Setup Contest**:
-
    - Configure contest settings in admin panel
    - Create quiz questions (max 15)
    - Set team registration deadline
-2. **Manage Teams**:
 
+2. **Manage Teams**:
    - Monitor team registrations
    - Verify team details
    - Handle any issues
-3. **Run Contest**:
 
+3. **Run Contest**:
    - Start quiz round
    - Monitor live progress
    - Manage voting phase
@@ -247,33 +280,49 @@ The platform includes a multi-admin system with role-based access:
 ### For Participants
 
 1. **Team Registration**:
-
    - Register with team name and details
    - Get team code for member access
    - All members use same team code
-2. **Contest Participation**:
 
+2. **Contest Participation**:
    - Login with team credentials
    - Complete quiz within time limit
    - Submit presentation for voting
    - Vote for other teams
+
+## 🛠️ Production Scripts
+
+### Available Production Scripts
+
+```bash
+# Environment & Setup
+npm run setup:production       # Initialize production database
+npm run seed:questions         # Seed quiz questions
+
+# Deployment & Verification
+npm run deploy:prep            # Prepare for deployment
+npm run build                  # Build for production
+npm run start                  # Start production server
+
+# Maintenance
+npm run type-check             # Check TypeScript types
+npm run lint                   # Run linting checks
+```
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
 #### Database Connection Errors
-
 ```bash
 # Check database URL format
 DATABASE_URL=postgresql://user:pass@host:5432/dbname?sslmode=require
 
 # Test connection
-npm run setup:development
+npm run setup:production
 ```
 
 #### Build Errors
-
 ```bash
 # Clear Next.js cache
 rm -rf .next
@@ -283,7 +332,6 @@ npm run build
 ```
 
 #### Authentication Issues
-
 ```bash
 # Verify JWT secret is set
 echo $JWT_SECRET
@@ -295,34 +343,56 @@ npm run setup:production
 ### Performance Optimization
 
 #### Database
-
 - Indexes are automatically created for optimal performance
 - Connection pooling with Neon serverless
 - Optimized queries with prepared statements
 
 #### Frontend
-
 - Static generation for public pages
 - Dynamic imports for large components
 - Image optimization with Next.js
 
-## 🔐 Security
+## 🔐 Security Features
 
-### Security Features
+### Security Headers
+The application automatically sets these security headers:
 
-- **Password Hashing**: bcrypt with salt rounds
-- **Session Management**: HTTP-only cookies
-- **SQL Injection Protection**: Parameterized queries
-- **XSS Prevention**: Input sanitization
-- **CSRF Protection**: SameSite cookies
+- **X-Frame-Options**: DENY (prevents clickjacking)
+- **X-Content-Type-Options**: nosniff (prevents MIME sniffing)
+- **X-XSS-Protection**: 1; mode=block (XSS protection)
+- **Referrer-Policy**: strict-origin-when-cross-origin
+- **Strict-Transport-Security**: max-age=31536000 (HTTPS only)
+- **Content-Security-Policy**: Strict CSP with nonce-based scripts
+- **Permissions-Policy**: Restricts browser features
 
 ### Health Checks
-
+- Health endpoint: `/api/health`
 - Database connectivity monitoring
-- API endpoint health checks
-- System performance metrics
+- Error logging and tracking
 
-### Development Setup
+## 📁 Project Structure
+
+```
+edic-contest-platform/
+├── src/                    # Source code
+│   ├── app/               # Next.js app directory
+│   │   ├── api/           # API routes
+│   │   ├── admin/         # Admin dashboard
+│   │   ├── auth/          # Authentication pages
+│   │   ├── dashboard/     # Team dashboard
+│   │   ├── quiz/          # Quiz interface
+│   │   ├── voting/        # Voting interface
+│   │   └── results/       # Results display
+│   ├── components/        # Reusable components
+│   ├── lib/               # Utility libraries
+│   └── styles/            # Global styles
+├── database/               # Database schemas and migrations
+├── scripts/                # Utility scripts
+├── public/                 # Static assets
+└── docs/                   # Documentation
+```
+
+## 🔄 Development Workflow
 
 1. Fork the repository
 2. Create feature branch: `git checkout -b feature/amazing-feature`
@@ -331,8 +401,88 @@ npm run setup:production
 5. Push: `git push origin feature/amazing-feature`
 6. Open Pull Request
 
+## 📚 Additional Resources
+
+### Database Migrations
+- **Initial Schema**: `database/migrations/1_0_0_initial_schema.sql`
+- **Production Schema**: `database/production-schema-v4.sql`
+- **Security Schema**: `database/security-schema.sql`
+- **Voting Schema**: `database/voting-schema.sql`
+
+### Security Monitoring
+```sql
+-- View security dashboard
+SELECT * FROM security_dashboard;
+
+-- Check recent security events
+SELECT * FROM audit_logs 
+WHERE timestamp > NOW() - INTERVAL '24 hours'
+ORDER BY timestamp DESC;
+
+-- Check rate limits
+SELECT * FROM rate_limits 
+WHERE locked_until > NOW();
+```
+
+## 🎯 Success Checklist
+
+- [ ] Environment variables configured
+- [ ] Database migrations applied
+- [ ] Application deployed successfully
+- [ ] Production setup completed
+- [ ] Admin panel accessible
+- [ ] Contest configured
+- [ ] Questions added
+- [ ] Teams set up
+- [ ] Deployment verified
+- [ ] Backups configured
+- [ ] Monitoring in place
+
+## 🚨 Incident Response
+
+### If Compromise Suspected:
+1. **Immediate Actions**:
+   - Change JWT_SECRET (invalidates all sessions)
+   - Check audit logs for suspicious activity
+   - Review rate limit violations
+   - Check for SQL injection attempts
+
+2. **Investigation**:
+   ```sql
+   -- Check failed login attempts
+   SELECT * FROM audit_logs 
+   WHERE event_type LIKE '%FAILED%' 
+   AND timestamp > NOW() - INTERVAL '7 days';
+   ```
+
+3. **Recovery**:
+   - Reset admin passwords
+   - Clear all sessions if needed
+   - Update security configurations
+   - Patch any identified vulnerabilities
+
+## 📊 Regular Maintenance
+
+### Daily:
+- [ ] Check security dashboard for anomalies
+- [ ] Review critical security events
+- [ ] Monitor failed login attempts
+
+### Weekly:
+- [ ] Review audit logs
+- [ ] Check for new security vulnerabilities
+- [ ] Update dependencies if needed
+
+### Monthly:
+- [ ] Rotate JWT secrets (optional, invalidates sessions)
+- [ ] Review and update security configurations
+- [ ] Test backup and recovery procedures
+
+---
+
 **🎉 Ready to run your contest?** Start with `npm run setup:production` and launch your competition platform!
 
-**Version**: 1.0.0
-**Status**: Production Ready ✅
-**Last Updated**: August 10, 2025
+**Version**: 1.0.0  
+**Status**: Production Ready ✅  
+**Last Updated**: August 13, 2025  
+**Build Status**: ✅ All TypeScript errors resolved, ready for Vercel deployment

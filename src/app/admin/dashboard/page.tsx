@@ -156,10 +156,44 @@ export default function AdminDashboard() {
       <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
+            <div className="flex items-center space-x-8">
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Admin Dashboard
               </h1>
+              
+              {/* Navigation Links */}
+              <nav className="hidden md:flex space-x-6">
+                <a
+                  href="/admin/dashboard"
+                  className="text-blue-600 dark:text-blue-400 font-medium text-sm"
+                >
+                  Dashboard
+                </a>
+                <a
+                  href="/admin/teams"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                >
+                  Teams
+                </a>
+                <a
+                  href="/admin/voting"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                >
+                  Voting
+                </a>
+                <a
+                  href="/admin/config"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                >
+                  Config
+                </a>
+                <a
+                  href="/admin/monitoring"
+                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                >
+                  Monitor
+                </a>
+              </nav>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -312,6 +346,19 @@ export default function AdminDashboard() {
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <SimpleCard className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Voting Control</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Manage voting sessions, presentations, and real-time voting rounds.
+                </p>
+                <SimpleButton 
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => router.push('/admin/voting')}
+                >
+                  Control Voting
+                </SimpleButton>
+              </SimpleCard>
+
               <SimpleCard className="p-6">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Results Control</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">

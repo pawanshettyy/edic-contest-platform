@@ -143,6 +143,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await response.json();
 
       if (!response.ok) {
+        console.error('❌ Signin failed:', result);
+        // Provide more specific error messages
+        if (response.status === 500) {
+          throw new Error('Database connection error. Please try again in a moment.');
+        } else if (response.status === 404) {
+          throw new Error('Team not found or invalid credentials.');
+        } else if (response.status === 401) {
+          throw new Error('Invalid team name or password.');
+        }
         throw new Error(result.error || 'Failed to sign in');
       }
 
